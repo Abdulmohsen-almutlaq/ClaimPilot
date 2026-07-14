@@ -1,0 +1,26 @@
+# Doc schema, required fields, business rules, and risk thresholds for the claims
+# domain. Swap this file (and point config loaders at a different path) to retarget
+# the whole pipeline at a different document-intake domain.
+
+document_type: insurance_claim
+
+required_fields:
+  - claimant_name
+  - policy_number
+  - incident_date
+  - claimed_amount
+  - category
+
+allowed_categories:
+  - auto
+  - home
+  - health
+
+amount_limits:
+  min: 1
+  max: 500000
+
+risk_thresholds:
+  auto_approve_max_amount: 5000
+  auto_approve_min_confidence: 0.85
+  high_risk_min_amount: 50000

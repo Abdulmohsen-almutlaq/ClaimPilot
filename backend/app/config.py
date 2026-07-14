@@ -20,20 +20,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://claimpilot:claimpilot@localhost:5432/claimpilot"
     redis_url: str = "redis://localhost:6379/0"
 
-    # LLM — provider-agnostic. Switch providers (including a local server) via env only.
-    llm_provider: Literal["anthropic", "openai", "local"] = "anthropic"
-
+    # LLM secrets only. Provider choice, model names, endpoints, temperature, and
+    # token budgets live in configs/models.yaml — never duplicate them here.
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-sonnet-4-6"
-    anthropic_fallback_model: str = "claude-haiku-4-5-20251001"
-
     openai_api_key: str | None = None
-    openai_model: str = "gpt-4o-mini"
+    local_llm_api_key: str | None = None  # some local OpenAI-compatible servers require one
 
-    # Any OpenAI-compatible local server (Ollama, vLLM, LM Studio, etc.)
-    local_llm_base_url: str | None = None
-    local_llm_model: str | None = None
-    local_llm_api_key: str | None = None
+    models_config_path: str = "../configs/models.yaml"
 
     # External services (wired in later milestones)
     crm_base_url: str = "http://localhost:8001"

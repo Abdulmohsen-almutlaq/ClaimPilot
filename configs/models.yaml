@@ -1,0 +1,46 @@
+# Model selection, token budgets, and non-secret endpoint config for every LLM-calling
+# node in the pipeline. API keys are secrets and stay in .env — never put them here.
+# Swap `provider` (or a node's `provider` override) to move the whole app to a
+# different backend, including a local OpenAI-compatible server, with no code changes.
+
+provider: anthropic # anthropic | openai | local
+
+providers:
+  anthropic:
+    base_url: https://api.anthropic.com
+    model: claude-sonnet-4-6
+    fallback_model: claude-haiku-4-5-20251001
+
+  openai:
+    base_url: https://api.openai.com/v1
+    model: gpt-4o-mini
+    fallback_model: gpt-4o-mini
+
+  local:
+    # Any OpenAI-compatible server: Ollama (http://localhost:11434/v1), vLLM, LM Studio.
+    base_url: http://localhost:11434/v1
+    model: llama3.1
+    fallback_model: llama3.1
+
+defaults:
+  temperature: 0.2
+  timeout_seconds: 30
+  max_retries: 3
+  token_budget_per_case: 25000
+
+# Per-node overrides. Anything omitted falls back to `defaults` / the active provider.
+nodes:
+  intake:
+    temperature: 0.0
+  draft:
+    temperature: 0.2
+  qa:
+    temperature: 0.0
+    use_fallback_model: true # cheap model for the QA/judge pass, per spec 5.9
+
+# Active prompt version per node. Bump here (after adding a new prompts/*.vN.md file)
+# to roll out a prompt change; the version is logged on every LLM call and audit row.
+prompts:
+  intake_extract: v1
+  draft_decision: v1
+  qa_review: v1
