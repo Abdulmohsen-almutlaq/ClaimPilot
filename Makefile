@@ -16,10 +16,10 @@ test:
 	cd backend && pytest
 
 migrate:
-	@echo "alembic migrations land in M2"
+	cd backend && alembic upgrade head
 
 seed:
-	@echo "seed data lands in M2"
+	cd backend && python -m app.db.seed
 
 demo:
 	@echo "demo script lands in M8"

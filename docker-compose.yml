@@ -25,12 +25,20 @@ services:
       timeout: 5s
       retries: 5
 
+  mock_crm:
+    build: ./mock_crm
+    environment:
+      CHAOS_MODE: ""
+    ports:
+      - "8001:8001"
+
   app:
     build: ./backend
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://claimpilot:claimpilot@postgres:5432/claimpilot
       REDIS_URL: redis://redis:6379/0
+      CRM_BASE_URL: http://mock_crm:8001
     ports:
       - "8000:8000"
     depends_on:
@@ -38,6 +46,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mock_crm:
+        condition: service_started
     volumes:
       - ./backend/app:/app/app
 
