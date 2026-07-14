@@ -50,6 +50,26 @@ services:
         condition: service_started
     volumes:
       - ./backend/app:/app/app
+      - ./configs:/configs:ro
+
+  worker:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://claimpilot:claimpilot@postgres:5432/claimpilot
+      REDIS_URL: redis://redis:6379/0
+      CRM_BASE_URL: http://mock_crm:8001
+    command: ["arq", "app.worker.WorkerSettings"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mock_crm:
+        condition: service_started
+    volumes:
+      - ./backend/app:/app/app
+      - ./configs:/configs:ro
 
 volumes:
   postgres_data:
