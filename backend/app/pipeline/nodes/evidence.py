@@ -16,7 +16,7 @@ def _build_query(fields: ClaimFields) -> str:
 
 async def run_evidence(state: CaseState, *, retriever: Retriever) -> dict[str, Any]:
     fields = ClaimFields.model_validate(state.get("extracted_fields") or {})
-    evidence = await retriever.retrieve(_build_query(fields))
+    evidence = await retriever.retrieve(_build_query(fields), category=fields.category)
 
     if not evidence:
         # Spec 5.1: no relevant evidence is never auto-decided — flag for a human.

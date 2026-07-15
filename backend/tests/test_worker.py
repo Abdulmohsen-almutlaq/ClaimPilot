@@ -18,7 +18,7 @@ CRM_BASE = "http://localhost:8001"
 
 
 class _FakeRetriever:
-    async def retrieve(self, query: str) -> list[Evidence]:
+    async def retrieve(self, query: str, *, category: str | None = None) -> list[Evidence]:
         return [
             Evidence(
                 clause_id="AUTO-001",

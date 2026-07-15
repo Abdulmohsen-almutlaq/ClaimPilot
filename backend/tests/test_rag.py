@@ -58,3 +58,20 @@ async def test_retrieval_filters_below_similarity_floor(_ingested_corpus: int) -
     )
     evidence = await retriever.retrieve("zzzz qqqq xyzzy plugh unrelated gibberish")
     assert evidence == []
+
+
+async def test_category_scoping_recovers_paraphrased_claims(_ingested_corpus: int) -> None:
+    retriever = PgVectorRetriever(
+        embedder=HashingEmbeddings(dim=384), top_k=5, min_similarity=0.05
+    )
+    # Regression for a live failure: an LLM paraphrase of a collision claim
+    # ("rear-ended ... bumper and trunk", never the word "collision") pulled
+    # cross-domain and adjacent clauses ahead of AUTO-001 without scoping.
+    query = (
+        "auto insurance claim Claimant was rear-ended while stopped at a red light, "
+        "causing damage to the rear bumper and trunk. claimed amount 3450.00"
+    )
+    scoped = await retriever.retrieve(query, category="auto")
+    assert scoped, "expected auto clauses above the similarity floor"
+    assert all(e.clause_id.startswith("AUTO-") for e in scoped)
+    assert "AUTO-001" in [e.clause_id for e in scoped]

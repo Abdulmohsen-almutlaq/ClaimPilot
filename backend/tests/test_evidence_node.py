@@ -7,9 +7,11 @@ class _StubRetriever:
     def __init__(self, evidence: list[Evidence]) -> None:
         self._evidence = evidence
         self.queries: list[str] = []
+        self.categories: list[str | None] = []
 
-    async def retrieve(self, query: str) -> list[Evidence]:
+    async def retrieve(self, query: str, *, category: str | None = None) -> list[Evidence]:
         self.queries.append(query)
+        self.categories.append(category)
         return self._evidence
 
 
@@ -35,6 +37,8 @@ async def test_evidence_found_moves_case_forward() -> None:
     # query is built from the extracted fields, not raw document text
     assert "auto" in retriever.queries[0]
     assert "Rear-end collision" in retriever.queries[0]
+    # retrieval is scoped to the claim's validated category
+    assert retriever.categories == ["auto"]
 
 
 async def test_no_evidence_flags_for_human() -> None:

@@ -10,7 +10,7 @@ from app.rag.embeddings import EmbeddingBackend, build_embedding_backend
 
 
 class Retriever(Protocol):
-    async def retrieve(self, query: str) -> list[Evidence]: ...
+    async def retrieve(self, query: str, *, category: str | None = None) -> list[Evidence]: ...
 
 
 class PgVectorRetriever:
@@ -21,7 +21,7 @@ class PgVectorRetriever:
         self._top_k = top_k
         self._min_similarity = min_similarity
 
-    async def retrieve(self, query: str) -> list[Evidence]:
+    async def retrieve(self, query: str, *, category: str | None = None) -> list[Evidence]:
         query_vec = (await self._embedder.embed([query]))[0]
         distance = PolicyClause.embedding.cosine_distance(query_vec).label("distance")
         stmt = (
@@ -29,6 +29,13 @@ class PgVectorRetriever:
             .order_by(distance)
             .limit(self._top_k)
         )
+        if category is not None:
+            # The claim's category is validated structured data by the time we get
+            # here — scoping the search to that category's clauses removes cross-
+            # domain noise that similarity alone can't (found live: an auto claim
+            # phrased as "rear-ended... bumper" pulled theft/rental clauses ahead
+            # of the collision clause and forced a needless needs_info draft).
+            stmt = stmt.where(PolicyClause.category == category)
         async with session_factory() as session:
             rows = (await session.execute(stmt)).all()
 
