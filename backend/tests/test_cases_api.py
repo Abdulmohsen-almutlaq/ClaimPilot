@@ -85,3 +85,30 @@ def test_get_case_after_create(client: TestClient) -> None:
     assert resp.status_code == 200
     assert resp.json()["case_id"] == case_id
     assert resp.json()["status"] == "queued"
+
+
+def test_audit_endpoint_requires_approver_or_admin(client: TestClient) -> None:
+    submitter_token = _login(client, "submitter@demo.io")
+    created = _upload(client, submitter_token, _build_pdf("Audit RBAC check"))
+    case_id = created.json()["case_id"]
+
+    resp = client.get(
+        f"/cases/{case_id}/audit", headers={"Authorization": f"Bearer {submitter_token}"}
+    )
+    assert resp.status_code == 403
+
+    approver_token = _login(client, "approver@demo.io")
+    resp = client.get(
+        f"/cases/{case_id}/audit", headers={"Authorization": f"Bearer {approver_token}"}
+    )
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
+
+
+def test_audit_endpoint_404_for_unknown_case(client: TestClient) -> None:
+    approver_token = _login(client, "approver@demo.io")
+    resp = client.get(
+        "/cases/00000000-0000-0000-0000-000000000000/audit",
+        headers={"Authorization": f"Bearer {approver_token}"},
+    )
+    assert resp.status_code == 404

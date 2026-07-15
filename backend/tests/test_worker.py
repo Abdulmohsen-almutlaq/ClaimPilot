@@ -6,6 +6,7 @@ import pytest
 import respx
 from pydantic import BaseModel
 
+from app.audit.writer import get_audit_trail
 from app.db.session import session_factory
 from app.llm.adapters import StructuredOutputError, TokenUsage
 from app.llm.client import LLMClient
@@ -109,6 +110,16 @@ async def test_run_case_pipeline_happy_path_updates_case() -> None:
         assert case.evidence[0]["clause_id"] == "AUTO-001"
         assert case.token_cost_usd >= Decimal("0")
 
+    # Every state transition must land in the append-only audit trail.
+    async with session_factory() as session:
+        events = [(e.event_type, e.node) for e in await get_audit_trail(session, case_id)]
+    assert events[0] == ("pipeline_started", None)
+    assert ("node_completed", "intake") in events
+    assert ("node_completed", "validate") in events
+    assert ("node_completed", "evidence") in events
+    assert ("node_completed", "draft") in events
+    assert events[-1] == ("pipeline_completed", None)
+
 
 async def test_run_case_pipeline_records_error_on_failure() -> None:
     await setup_checkpointer_tables()
@@ -123,3 +134,8 @@ async def test_run_case_pipeline_records_error_on_failure() -> None:
         assert case is not None
         assert case.status == "error"
         assert case.errors
+
+    async with session_factory() as session:
+        events = [e.event_type for e in await get_audit_trail(session, case_id)]
+    assert events[0] == "pipeline_started"
+    assert events[-1] == "pipeline_failed"

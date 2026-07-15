@@ -1,24 +1,13 @@
-from dataclasses import dataclass
 from typing import Literal
 
-from app.auth.security import hash_password
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.user import User
 
 Role = Literal["submitter", "approver", "admin"]
 
 
-@dataclass(frozen=True)
-class User:
-    email: str
-    password_hash: str
-    role: Role
-
-
-_SEED_USERS: dict[str, User] = {
-    "submitter@demo.io": User("submitter@demo.io", hash_password("demo"), "submitter"),
-    "approver@demo.io": User("approver@demo.io", hash_password("demo"), "approver"),
-    "admin@demo.io": User("admin@demo.io", hash_password("demo"), "admin"),
-}
-
-
-def get_user(email: str) -> User | None:
-    return _SEED_USERS.get(email)
+async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
+    user: User | None = await session.scalar(select(User).where(User.email == email))
+    return user

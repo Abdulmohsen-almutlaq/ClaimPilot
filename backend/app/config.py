@@ -28,9 +28,11 @@ class Settings(BaseSettings):
     local_llm_api_key: str | None = None  # some local OpenAI-compatible servers require one
 
     models_config_path: str = "../configs/models.yaml"
+    domain_config_path: str = "../configs/domain.claims.yaml"
 
-    # External services (wired in later milestones)
+    # External services
     crm_base_url: str = "http://localhost:8001"
+    crm_timeout_seconds: float = 5.0
 
 
 @lru_cache

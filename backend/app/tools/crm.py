@@ -17,10 +17,12 @@ class CRMUnavailableError(CRMError):
     pass
 
 
-async def _get(path: str, *, timeout: float) -> dict[str, Any]:
-    url = f"{get_settings().crm_base_url}{path}"
+async def _get(path: str, *, timeout: float | None) -> dict[str, Any]:
+    settings = get_settings()
+    url = f"{settings.crm_base_url}{path}"
+    effective_timeout = timeout if timeout is not None else settings.crm_timeout_seconds
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=effective_timeout) as client:
             resp = await client.get(url)
     except httpx.HTTPError as exc:
         raise CRMUnavailableError(str(exc)) from exc
@@ -34,9 +36,9 @@ async def _get(path: str, *, timeout: float) -> dict[str, Any]:
     return result
 
 
-async def lookup_policy(policy_number: str, *, timeout: float = 5.0) -> dict[str, Any]:
+async def lookup_policy(policy_number: str, *, timeout: float | None = None) -> dict[str, Any]:
     return await _get(f"/policies/{policy_number}", timeout=timeout)
 
 
-async def get_customer(customer_id: str, *, timeout: float = 5.0) -> dict[str, Any]:
+async def get_customer(customer_id: str, *, timeout: float | None = None) -> dict[str, Any]:
     return await _get(f"/customers/{customer_id}", timeout=timeout)

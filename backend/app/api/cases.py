@@ -1,5 +1,7 @@
 import hashlib
 import uuid
+from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
@@ -7,10 +9,11 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.writer import get_audit_trail
 from app.auth.dependencies import require_role
-from app.auth.users import User
 from app.db.session import get_session
 from app.models.case import Case
+from app.models.user import User
 from app.tools.parser import extract_text_from_pdf
 from app.worker import enqueue_case_pipeline
 
@@ -75,3 +78,49 @@ async def get_case(
         draft=case.draft,
         route=case.route,
     )
+
+
+class AuditEntryResponse(BaseModel):
+    id: str
+    timestamp: datetime
+    actor: str
+    event_type: str
+    node: str | None
+    model: str | None
+    model_version: str | None
+    prompt_version: str | None
+    input_hash: str | None
+    output_hash: str | None
+    payload: dict[str, Any] | None
+    cost_usd: Decimal | None
+    latency_ms: int | None
+
+
+@router.get("/{case_id}/audit", response_model=list[AuditEntryResponse])
+async def get_case_audit(
+    case_id: uuid.UUID,
+    user: User = Depends(require_role("approver", "admin")),
+    session: AsyncSession = Depends(get_session),
+) -> list[AuditEntryResponse]:
+    case = await session.get(Case, case_id)
+    if case is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="case not found")
+    entries = await get_audit_trail(session, case_id)
+    return [
+        AuditEntryResponse(
+            id=str(entry.id),
+            timestamp=entry.timestamp,
+            actor=entry.actor,
+            event_type=entry.event_type,
+            node=entry.node,
+            model=entry.model,
+            model_version=entry.model_version,
+            prompt_version=entry.prompt_version,
+            input_hash=entry.input_hash,
+            output_hash=entry.output_hash,
+            payload=entry.payload_json,
+            cost_usd=entry.cost_usd,
+            latency_ms=entry.latency_ms,
+        )
+        for entry in entries
+    ]

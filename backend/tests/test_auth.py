@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import require_role
-from app.auth.users import User
+from app.models.user import User
 
 
 def test_login_success(client: TestClient) -> None:
@@ -35,15 +35,15 @@ def test_me_with_valid_token(client: TestClient) -> None:
     assert resp.json() == {"email": "admin@demo.io", "role": "admin"}
 
 
-def test_require_role_allows_matching_role() -> None:
+async def test_require_role_allows_matching_role() -> None:
     dependency = require_role("admin", "approver")
     user = User(email="approver@demo.io", password_hash="x", role="approver")
-    assert dependency(user=user) == user
+    assert await dependency(user=user) == user
 
 
-def test_require_role_blocks_non_matching_role() -> None:
+async def test_require_role_blocks_non_matching_role() -> None:
     dependency = require_role("admin")
     user = User(email="submitter@demo.io", password_hash="x", role="submitter")
     with pytest.raises(HTTPException) as exc_info:
-        dependency(user=user)
+        await dependency(user=user)
     assert exc_info.value.status_code == 403
