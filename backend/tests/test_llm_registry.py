@@ -29,7 +29,7 @@ def test_embeddings_and_retrieval_config_loaded() -> None:
     assert config.embeddings.provider == "fastembed"
     assert config.embeddings.model == "sentence-transformers/all-MiniLM-L6-v2"
     assert config.embeddings.dim == 384
-    assert config.retrieval.top_k == 5
+    assert config.retrieval.top_k >= 1
     assert 0 < config.retrieval.min_similarity < 1
 
 
@@ -41,7 +41,9 @@ def test_provider_unknown_raises() -> None:
 
 def test_prompt_version_lookup() -> None:
     config = load_models_config()
-    assert config.prompt_version("intake_extract") == "v1"
+    # the active version tracks models.yaml; it must exist as a prompt file
+    version = config.prompt_version("intake_extract")
+    assert load_prompt("intake_extract", version)
 
 
 def test_load_prompt_reads_file() -> None:

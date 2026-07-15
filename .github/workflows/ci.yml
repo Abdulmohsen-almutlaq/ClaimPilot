@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
 
 jobs:
@@ -47,6 +47,10 @@ jobs:
       - run: mypy app
       - run: alembic upgrade head
       - run: pytest
+      # Eval gate (spec 5.8): checks the committed evals/results.json against
+      # configs/evals.yaml thresholds and fails if the dataset changed without a
+      # fresh eval run. Reads artifacts only — no API key or LLM calls in CI.
+      - run: pytest ../evals/test_evals.py -q
 
   mock-crm:
     runs-on: ubuntu-latest

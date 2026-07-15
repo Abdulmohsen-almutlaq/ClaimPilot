@@ -44,4 +44,15 @@ POLICIES: dict[str, dict[str, str | float]] = {
         "effective_date": "2023-01-01",
         "expiry_date": "2024-01-01",
     },
+    # Active health policy so the eval dataset can include health approvals
+    # (POL-HEALTH-003 stays lapsed on purpose — it powers invalid-policy cases).
+    "POL-HEALTH-004": {
+        "policy_number": "POL-HEALTH-004",
+        "customer_id": "cust-1003",
+        "status": "active",
+        "category": "health",
+        "coverage_limit": 50000.0,
+        "effective_date": "2025-06-01",
+        "expiry_date": "2027-06-01",
+    },
 }

@@ -56,7 +56,9 @@ async def test_run_intake_extracts_fields() -> None:
     assert update["extracted_fields"]["policy_number"] == "POL-AUTO-001"
     assert update["status"] == "validating"
     assert update["model_versions"]["intake"]
-    assert update["prompt_versions"]["intake"] == "v1"
+    # tracks the active version in models.yaml (which one doesn't matter here —
+    # the point is that the version used is recorded on the state)
+    assert update["prompt_versions"]["intake"]
     assert update["token_cost_usd"] >= 0
 
 

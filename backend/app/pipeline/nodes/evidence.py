@@ -27,7 +27,12 @@ async def run_evidence(state: CaseState, *, retriever: Retriever) -> dict[str, A
 
     if not evidence:
         # Spec 5.1: no relevant evidence is never auto-decided — flag for a human.
-        return {"evidence": [], "status": "human_queue", "route": "human_queue"}
+        return {
+            "evidence": [],
+            "status": "human_queue",
+            "route": "human_queue",
+            "route_reason": "no_evidence",
+        }
 
     return {
         "evidence": [item.model_dump(mode="json") for item in evidence],

@@ -49,3 +49,4 @@ async def test_no_evidence_flags_for_human() -> None:
     assert update["evidence"] == []
     assert update["status"] == "human_queue"
     assert update["route"] == "human_queue"
+    assert update["route_reason"] == "no_evidence"
