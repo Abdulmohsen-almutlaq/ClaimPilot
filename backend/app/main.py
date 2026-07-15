@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import auth, cases, health
+from app.api import admin, auth, cases, health
 
 
 def create_app() -> FastAPI:
@@ -8,6 +8,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(cases.router)
+    app.include_router(admin.router)
     return app
 
 

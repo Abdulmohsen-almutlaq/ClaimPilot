@@ -4,6 +4,7 @@ from app.pipeline.domain_config import load_domain_config
 from app.pipeline.schemas import ClaimFields, ValidationResult
 from app.pipeline.state import CaseState
 from app.tools import crm
+from app.tools.circuit_breaker import CircuitOpenError
 from app.tools.crm import CRMNotFoundError, CRMUnavailableError
 
 
@@ -30,8 +31,18 @@ async def run_validate(state: CaseState) -> dict[str, Any]:
             policy = await crm.lookup_policy(fields.policy_number)
         except CRMNotFoundError:
             reasons.append(f"policy {fields.policy_number} not found")
-        except CRMUnavailableError:
-            reasons.append("policy lookup unavailable")
+        except (CRMUnavailableError, CircuitOpenError):
+            # OUR dependency is down — never ask the customer for more info
+            # about it (spec 5.2). A human handles the case instead.
+            validation_result = ValidationResult(
+                valid=False, reasons=["policy lookup unavailable"], policy_status=None
+            )
+            return {
+                "validation_result": validation_result.model_dump(mode="json"),
+                "status": "human_queue",
+                "route": "human_queue",
+                "route_reason": "dependency_down",
+            }
         else:
             policy_status = policy.get("status")
             if policy_status != "active":

@@ -16,7 +16,11 @@ from app.pipeline.state import CaseState
 from app.rag.retrieve import Retriever
 
 
-def _route_after_validate(state: CaseState) -> Literal["evidence", "needs_info"]:
+def _route_after_validate(
+    state: CaseState,
+) -> Literal["evidence", "needs_info", "dependency_down"]:
+    if state.get("route_reason") == "dependency_down":
+        return "dependency_down"
     validation = state.get("validation_result") or {}
     return "evidence" if validation.get("valid") else "needs_info"
 
@@ -45,6 +49,12 @@ async def _mark_no_evidence(state: CaseState) -> dict[str, str]:
     return {}
 
 
+async def _mark_dependency_down(state: CaseState) -> dict[str, str]:
+    # run_validate already set status/route/route_reason; explicit terminal
+    # node for the same auditability reason as _mark_no_evidence.
+    return {}
+
+
 def build_graph(
     llm_client: LLMClient, retriever: Retriever
 ) -> StateGraph[CaseState, None, CaseState, CaseState]:
@@ -57,11 +67,18 @@ def build_graph(
     graph.add_node("route", run_route)
     graph.add_node("needs_info", _mark_needs_info)
     graph.add_node("no_evidence", _mark_no_evidence)
+    graph.add_node("dependency_down", _mark_dependency_down)
 
     graph.set_entry_point("intake")
     graph.add_edge("intake", "validate")
     graph.add_conditional_edges(
-        "validate", _route_after_validate, {"evidence": "evidence", "needs_info": "needs_info"}
+        "validate",
+        _route_after_validate,
+        {
+            "evidence": "evidence",
+            "needs_info": "needs_info",
+            "dependency_down": "dependency_down",
+        },
     )
     graph.add_conditional_edges(
         "evidence", _route_after_evidence, {"draft": "draft", "no_evidence": "no_evidence"}
@@ -71,6 +88,7 @@ def build_graph(
     graph.add_edge("route", END)
     graph.add_edge("needs_info", END)
     graph.add_edge("no_evidence", END)
+    graph.add_edge("dependency_down", END)
 
     return graph
 

@@ -24,6 +24,15 @@ def _seed_demo_users() -> None:
         pass
 
 
+@pytest.fixture(autouse=True)
+def _fresh_circuit_breaker() -> None:
+    # Breakers hold state across calls by design; tests must not leak that
+    # state into each other.
+    from app.tools.crm import reset_breaker
+
+    reset_breaker()
+
+
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)

@@ -1,3 +1,4 @@
+import traceback
 import uuid
 from decimal import Decimal
 from typing import Any
@@ -7,6 +8,7 @@ from langchain_core.runnables import RunnableConfig
 
 from app.audit.writer import write_audit_event
 from app.config import get_settings
+from app.core.dlq import push_dlq
 from app.db.session import session_factory
 from app.llm.client import BudgetExhaustedError, LLMClient
 from app.models.case import Case
@@ -130,6 +132,7 @@ async def run_case_pipeline(
         return
     except Exception as exc:
         await _audit(case_uuid, "pipeline_failed", payload={"error": str(exc)})
+        await push_dlq(case_id=case_id, error=str(exc), traceback_text=traceback.format_exc())
         async with session_factory() as session:
             case = await session.get(Case, case_uuid)
             if case is not None:
