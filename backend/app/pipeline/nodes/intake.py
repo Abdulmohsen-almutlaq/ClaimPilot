@@ -1,5 +1,6 @@
 from typing import Any
 
+from app.guardrails.sanitize import fence_document
 from app.llm.client import LLMClient
 from app.llm.registry import load_prompt
 from app.pipeline.schemas import ClaimFields
@@ -12,7 +13,7 @@ async def run_intake(state: CaseState, *, llm_client: LLMClient) -> dict[str, An
     document_text = state["document_text"]
     prompt_version = llm_client.models_config.prompt_version(PROMPT_NAME)
     system_prompt = load_prompt(PROMPT_NAME, prompt_version)
-    user_prompt = f"<document>\n{document_text}\n</document>"
+    user_prompt = fence_document(document_text)
 
     result = await llm_client.generate_structured(
         node="intake",
@@ -20,6 +21,7 @@ async def run_intake(state: CaseState, *, llm_client: LLMClient) -> dict[str, An
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         schema=ClaimFields,
+        tokens_used=state.get("tokens_used", 0),
     )
 
     return {

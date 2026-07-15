@@ -28,10 +28,13 @@ class _AlwaysFailsAdapter:
         raise StructuredOutputError("boom")
 
 
-async def _create_case(document_text: str) -> uuid.UUID:
+async def _create_case(document_text: str, *, tokens_used: int = 0) -> uuid.UUID:
     async with session_factory() as session:
         case = Case(
-            document_hash=str(uuid.uuid4()), document_text=document_text, status="queued"
+            document_hash=str(uuid.uuid4()),
+            document_text=document_text,
+            status="queued",
+            tokens_used=tokens_used,
         )
         session.add(case)
         await session.commit()
@@ -93,3 +96,27 @@ async def test_run_case_pipeline_records_error_on_failure() -> None:
         events = [e.event_type for e in await get_audit_trail(session, case_id)]
     assert events[0] == "pipeline_started"
     assert events[-1] == "pipeline_failed"
+
+
+async def test_budget_exhausted_routes_to_human_without_crashing() -> None:
+    await setup_checkpointer_tables()
+    # A case that already burned far past the hard token limit: the very first
+    # LLM call must be refused and the case handed to a human — no exception,
+    # no stuck "queued" status, no wasted spend.
+    case_id = await _create_case("some claim text", tokens_used=10_000_000)
+    SchemaAwareAdapter.reset()
+    llm_client = LLMClient(adapter_factory=SchemaAwareAdapter)
+
+    await run_case_pipeline({}, str(case_id), llm_client=llm_client, retriever=FakeRetriever())
+
+    assert SchemaAwareAdapter.calls == []  # refused before any model was invoked
+    async with session_factory() as session:
+        case = await session.get(Case, case_id)
+        assert case is not None
+        assert case.status == "human_queue"
+        assert case.route == "human_queue"
+        assert case.route_reason == "budget_exhausted"
+
+    async with session_factory() as session:
+        events = [e.event_type for e in await get_audit_trail(session, case_id)]
+    assert events[-1] == "budget_exhausted"

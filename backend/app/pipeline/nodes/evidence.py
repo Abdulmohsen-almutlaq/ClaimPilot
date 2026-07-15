@@ -1,5 +1,7 @@
 from typing import Any
 
+from app.guardrails.pii import redact_pii
+from app.llm.registry import load_models_config
 from app.pipeline.schemas import ClaimFields
 from app.pipeline.state import CaseState
 from app.rag.retrieve import Retriever
@@ -11,7 +13,12 @@ def _build_query(fields: ClaimFields) -> str:
         fields.description or "",
         f"claimed amount {fields.claimed_amount}" if fields.claimed_amount is not None else "",
     ]
-    return " ".join(part for part in parts if part).strip()
+    query = " ".join(part for part in parts if part).strip()
+    if load_models_config().guardrails.pii_redaction:
+        # Redacted before it reaches the embedding backend, so PII never lands
+        # in the vector store or a third-party embeddings API (spec 5.3).
+        query = redact_pii(query)
+    return query
 
 
 async def run_evidence(state: CaseState, *, retriever: Retriever) -> dict[str, Any]:

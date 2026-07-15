@@ -68,6 +68,7 @@ async def run_draft(state: CaseState, *, llm_client: LLMClient) -> dict[str, Any
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         schema=DecisionDraft,
+        tokens_used=state.get("tokens_used", 0),
     )
 
     return {

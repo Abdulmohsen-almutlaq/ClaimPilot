@@ -8,7 +8,7 @@ from langchain_core.runnables import RunnableConfig
 from app.audit.writer import write_audit_event
 from app.config import get_settings
 from app.db.session import session_factory
-from app.llm.client import LLMClient
+from app.llm.client import BudgetExhaustedError, LLMClient
 from app.models.case import Case
 from app.pipeline.checkpointer import get_checkpointer
 from app.pipeline.graph import compile_graph
@@ -116,6 +116,18 @@ async def run_case_pipeline(
                     await _audit_node_update(case_uuid, node, update, cost_delta)
             snapshot = await graph.aget_state(config)
             final_state = snapshot.values
+    except BudgetExhaustedError as exc:
+        # A handled business outcome, not an error: the case burned its token
+        # budget, so a human decides. No re-raise — the job is done.
+        await _audit(case_uuid, "budget_exhausted", payload={"detail": str(exc)})
+        async with session_factory() as session:
+            case = await session.get(Case, case_uuid)
+            if case is not None:
+                case.status = "human_queue"
+                case.route = "human_queue"
+                case.route_reason = "budget_exhausted"
+                await session.commit()
+        return
     except Exception as exc:
         await _audit(case_uuid, "pipeline_failed", payload={"error": str(exc)})
         async with session_factory() as session:

@@ -20,6 +20,12 @@ class LLMCallFailed(Exception):
     pass
 
 
+class BudgetExhaustedError(Exception):
+    """The case crossed its hard token limit; no further LLM calls are allowed.
+    The worker converts this into human_queue/budget_exhausted — it is a
+    business outcome, not an error."""
+
+
 @dataclass(frozen=True)
 class LLMResult[SchemaT: BaseModel]:
     data: SchemaT
@@ -75,6 +81,23 @@ class LLMClient:
         )
         return adapter, model_name
 
+    def _budget_forces_fallback(self, node: str, tokens_used: int) -> bool:
+        """Token budget is enforced here, at the only place LLM calls exit the
+        app, so an unbudgeted call cannot exist by construction. Soft budget
+        crossed -> remaining calls downgrade to the fallback model; hard limit
+        crossed -> BudgetExhaustedError (worker turns it into human_queue)."""
+        defaults = self.models_config.defaults
+        budget = int(defaults.get("token_budget_per_case", 0) or 0)
+        if budget <= 0:
+            return False
+        multiplier = float(defaults.get("token_budget_hard_multiplier", 2))
+        if tokens_used >= budget * multiplier:
+            raise BudgetExhaustedError(
+                f"node={node}: {tokens_used} tokens used, hard limit "
+                f"{int(budget * multiplier)}"
+            )
+        return tokens_used >= budget
+
     async def generate_structured[SchemaT: BaseModel](
         self,
         *,
@@ -83,12 +106,16 @@ class LLMClient:
         system_prompt: str,
         user_prompt: str,
         schema: type[SchemaT],
+        tokens_used: int = 0,
     ) -> LLMResult[SchemaT]:
         node_cfg = self.models_config.resolve_node(node)
+        budget_fallback = self._budget_forces_fallback(node, tokens_used)
         last_exc: Exception | None = None
 
         for attempt in range(1, node_cfg.max_retries + 1):
-            use_fallback = attempt == node_cfg.max_retries and node_cfg.max_retries > 1
+            use_fallback = budget_fallback or (
+                attempt == node_cfg.max_retries and node_cfg.max_retries > 1
+            )
             adapter, model_name = self._build_adapter(node, use_fallback=use_fallback)
 
             start = time.monotonic()

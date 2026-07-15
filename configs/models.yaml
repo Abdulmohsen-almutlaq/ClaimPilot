@@ -32,7 +32,15 @@ defaults:
   temperature: 0.2
   timeout_seconds: 30
   max_retries: 3
+  # Soft budget: crossing it downgrades remaining calls to the fallback model.
+  # Hard limit (budget x multiplier): LLM calls stop and the case goes to a human.
   token_budget_per_case: 25000
+  token_budget_hard_multiplier: 2
+
+guardrails:
+  # Redact emails/phones/SSNs/card numbers before claim text reaches the
+  # embedding backend (and thus the vector store).
+  pii_redaction: true
 
 # Per-node overrides. Anything omitted falls back to `defaults` / the active provider.
 nodes:

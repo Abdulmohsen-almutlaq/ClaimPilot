@@ -44,6 +44,7 @@ async def run_qa(state: CaseState, *, llm_client: LLMClient) -> dict[str, Any]:
         system_prompt=system_prompt,
         user_prompt=_build_user_prompt(state),
         schema=QAResult,
+        tokens_used=state.get("tokens_used", 0),
     )
 
     qa = result.data

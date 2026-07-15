@@ -40,6 +40,11 @@ class RetrievalConfig:
     min_similarity: float
 
 
+@dataclass(frozen=True)
+class GuardrailsConfig:
+    pii_redaction: bool
+
+
 class UnknownProviderError(Exception):
     pass
 
@@ -57,6 +62,7 @@ class ModelsConfig:
     prompt_versions: dict[str, str]
     embeddings: EmbeddingsConfig
     retrieval: RetrievalConfig
+    guardrails: GuardrailsConfig
 
     def provider(self, name: str) -> ProviderConfig:
         try:
@@ -107,6 +113,7 @@ def load_models_config(path: str | None = None) -> ModelsConfig:
     }
     raw_embeddings = raw.get("embeddings") or {}
     raw_retrieval = raw.get("retrieval") or {}
+    raw_guardrails = raw.get("guardrails") or {}
     return ModelsConfig(
         default_provider=raw["provider"],
         providers=providers,
@@ -122,6 +129,9 @@ def load_models_config(path: str | None = None) -> ModelsConfig:
         retrieval=RetrievalConfig(
             top_k=int(raw_retrieval.get("top_k", 5)),
             min_similarity=float(raw_retrieval.get("min_similarity", 0.05)),
+        ),
+        guardrails=GuardrailsConfig(
+            pii_redaction=bool(raw_guardrails.get("pii_redaction", True)),
         ),
     )
 
