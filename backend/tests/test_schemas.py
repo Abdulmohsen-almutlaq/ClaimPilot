@@ -47,6 +47,26 @@ def test_formatted_money_is_normalized() -> None:
     assert fields.claimed_amount == Decimal("17500")
 
 
+def test_arabic_indic_money_is_normalized() -> None:
+    fields = ClaimFields.model_validate({"claimed_amount": "١٬٢٥٠٫٥٠ ر.س"})
+    assert fields.claimed_amount == Decimal("1250.50")
+    fields = ClaimFields.model_validate({"claimed_amount": "٣٨٠٠ ريال"})
+    assert fields.claimed_amount == Decimal("3800")
+
+
+def test_arabic_missing_sentinels_become_none() -> None:
+    fields = ClaimFields.model_validate(
+        {"claimant_name": "غير معروف", "claimed_amount": "لا يوجد"}
+    )
+    assert fields.claimant_name is None
+    assert fields.claimed_amount is None
+
+
+def test_arabic_name_passes_through_unchanged() -> None:
+    fields = ClaimFields.model_validate({"claimant_name": "عبدالله الحربي"})
+    assert fields.claimant_name == "عبدالله الحربي"
+
+
 def test_draft_payout_money_is_normalized() -> None:
     draft = DecisionDraft.model_validate(
         {

@@ -42,6 +42,26 @@ async def test_empty_text_embeds_to_zero_vector_without_error() -> None:
     assert all(v == 0.0 for v in vec)
 
 
+async def test_arabic_text_produces_nonzero_normalized_vector() -> None:
+    # Regression: the ASCII-only tokenizer embedded Arabic to a zero vector,
+    # which the retrieval similarity floor then silently discarded.
+    embedder = HashingEmbeddings(dim=384)
+    [vec] = await embedder.embed(["تصادم خلفي بالسيارة عند إشارة المرور"])
+    assert math.isclose(math.sqrt(sum(v * v for v in vec)), 1.0, rel_tol=1e-9)
+
+
+async def test_related_arabic_texts_score_higher_than_unrelated() -> None:
+    embedder = HashingEmbeddings(dim=384)
+    query, related, unrelated = await embedder.embed(
+        [
+            "تصادم سيارة حادث أضرار",  # car collision accident damage
+            "أضرار تصادم خلفي بالسيارة المؤمنة",  # rear-end collision damage to the insured car
+            "الأدوية الموصوفة تشمل مدفوعات مشتركة",  # prescription drugs have copayments
+        ]
+    )
+    assert _cosine(query, related) > _cosine(query, unrelated)
+
+
 def test_build_backend_default_is_fastembed_transformer() -> None:
     backend = build_embedding_backend()
     assert isinstance(backend, FastEmbedEmbeddings)

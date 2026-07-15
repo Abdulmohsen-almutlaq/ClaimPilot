@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -e .
 
 # Bake the embedding model into the image so containers never download it at
 # runtime (first RAG call would otherwise stall on a ~90MB Hugging Face pull).
-RUN python -c "from fastembed import TextEmbedding; TextEmbedding('sentence-transformers/all-MiniLM-L6-v2')"
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')"
 
 EXPOSE 8000
 

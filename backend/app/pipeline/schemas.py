@@ -8,7 +8,17 @@ from pydantic import BaseModel, Field, field_validator
 # values (found by the eval harness: a claim with no claimant name auto-approved
 # because "null" is a truthy string). Normalizing here — at the boundary — is
 # principle 1: no unvalidated LLM output crosses into the pipeline.
-_MISSING_SENTINELS = {"", "null", "none", "n/a", "na", "unknown", "not provided", "not stated"}
+_MISSING_SENTINELS = {
+    "", "null", "none", "n/a", "na", "unknown", "not provided", "not stated",
+    # Arabic missing-value markers
+    "غير معروف", "غير متوفر", "لا يوجد",
+}
+
+# Arabic-Indic (٠-٩) and Eastern Arabic-Indic (۰-۹) digits → ASCII; the Arabic
+# decimal separator ٫ (U+066B) → "."; the Arabic thousands separator ٬ (U+066C)
+# is deleted like ",".
+_DIGIT_TRANSLATION = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫", "01234567890123456789.", "٬")
+_CURRENCY_TOKENS = ("ر.س", "ريال", "د.إ", "درهم", "جنيه", "SAR", "AED", "EGP", "USD", "$", ",")
 
 
 def _none_if_sentinel(value: Any) -> Any:
@@ -18,11 +28,14 @@ def _none_if_sentinel(value: Any) -> Any:
 
 
 def _clean_money(value: Any) -> Any:
-    """LLMs also emit formatted money ("$17,500.00", "1200 USD") that Decimal
-    rejects — found as draft-node retry exhaustion in the eval run."""
+    """LLMs also emit formatted money ("$17,500.00", "1200 USD", "١٬٢٥٠ ر.س")
+    that Decimal rejects — found as draft-node retry exhaustion in the eval run."""
     value = _none_if_sentinel(value)
     if isinstance(value, str):
-        return value.replace("$", "").replace(",", "").replace("USD", "").strip() or None
+        cleaned = value.translate(_DIGIT_TRANSLATION)
+        for token in _CURRENCY_TOKENS:
+            cleaned = cleaned.replace(token, "")
+        return cleaned.replace(" ", "") or None
     return value
 
 

@@ -187,6 +187,10 @@ def main() -> None:
 
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    if hasattr(sys.stdout, "reconfigure"):
+        # Windows consoles default to cp1252, which crashes printing Arabic
+        # case content; CI/Linux are already UTF-8 so this is a no-op there.
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     cases, dataset_sha = load_dataset()
     if args.smoke:

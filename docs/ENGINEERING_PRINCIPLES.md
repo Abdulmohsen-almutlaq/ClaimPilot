@@ -61,7 +61,7 @@ line on. When in doubt, prefer boring and explicit over clever.
    | Agent graph + checkpoints | LangGraph (+ langgraph-checkpoint-postgres) |
    | LLM provider adapters | LangChain (ChatAnthropic / ChatOpenAI) |
    | Vector search | pgvector |
-   | RAG embeddings | fastembed (ONNX) running HF `all-MiniLM-L6-v2` |
+   | RAG embeddings | fastembed (ONNX) running HF `paraphrase-multilingual-MiniLM-L12-v2` (cross-lingual: Arabic queries retrieve the English corpus) |
    | Queue / DLQ | arq + redis-py |
    | PDF extraction | pdfplumber |
    | Tests / lint / types | pytest, respx, ruff, mypy |
@@ -82,3 +82,7 @@ line on. When in doubt, prefer boring and explicit over clever.
   editing `v1` in place.
 - Commit messages explain the why and record what was actually verified
   (live runs, not just unit tests) — they are the project's engineering log.
+- Arabic support covers the text layer end-to-end (extraction, retrieval,
+  drafting, normalization). Known limitation: scanned/image Arabic PDFs need an
+  OCR step that doesn't exist yet; only PDFs with a real text layer work, and
+  RTL extraction quality depends on how the PDF encodes its text.

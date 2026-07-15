@@ -9,7 +9,7 @@ import httpx
 from app.config import get_settings
 from app.llm.registry import EmbeddingsConfig, load_models_config
 
-DEFAULT_FASTEMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+DEFAULT_FASTEMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 
 class EmbeddingBackend(Protocol):
@@ -18,7 +18,9 @@ class EmbeddingBackend(Protocol):
     async def embed(self, texts: list[str]) -> list[list[float]]: ...
 
 
-_TOKEN_RE = re.compile(r"[a-z0-9]+")
+# Unicode word characters (any script), so Arabic/CJK text produces features too
+# — the ASCII-only predecessor embedded Arabic to a zero vector.
+_TOKEN_RE = re.compile(r"[^\W_]+")
 
 
 class HashingEmbeddings:

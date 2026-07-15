@@ -27,7 +27,7 @@ def test_resolve_node_falls_back_to_defaults() -> None:
 def test_embeddings_and_retrieval_config_loaded() -> None:
     config = load_models_config()
     assert config.embeddings.provider == "fastembed"
-    assert config.embeddings.model == "sentence-transformers/all-MiniLM-L6-v2"
+    assert config.embeddings.model == "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     assert config.embeddings.dim == 384
     assert config.retrieval.top_k >= 1
     assert 0 < config.retrieval.min_similarity < 1
