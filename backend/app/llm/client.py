@@ -54,6 +54,8 @@ class LLMClient:
             return self._settings.anthropic_api_key
         if provider == "openai":
             return self._settings.openai_api_key
+        if provider == "deepseek":
+            return self._settings.deepseek_api_key
         return self._settings.local_llm_api_key
 
     def _build_adapter(self, node: str, *, use_fallback: bool) -> tuple[ChatAdapter, str]:

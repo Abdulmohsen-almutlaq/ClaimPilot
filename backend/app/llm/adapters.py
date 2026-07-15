@@ -38,6 +38,7 @@ class LangChainAdapter:
         timeout: float,
     ) -> None:
         secret_key = SecretStr(api_key) if api_key else SecretStr("not-needed")
+        self._provider = provider
         if provider == "anthropic":
             self._model: ChatAnthropic | ChatOpenAI = ChatAnthropic(
                 model_name=model,
@@ -59,7 +60,16 @@ class LangChainAdapter:
     async def generate(
         self, *, system_prompt: str, user_prompt: str, schema: type[BaseModel]
     ) -> tuple[BaseModel, TokenUsage]:
-        structured = self._model.with_structured_output(schema, include_raw=True)
+        if self._provider == "anthropic":
+            structured = self._model.with_structured_output(schema, include_raw=True)
+        else:
+            # Pin function-calling for OpenAI-compatible providers (DeepSeek, Ollama,
+            # vLLM...): LangChain picks a structured-output method by sniffing the
+            # model name, and non-OpenAI models can get routed to OpenAI-only
+            # json_schema response_format, which those APIs reject.
+            structured = self._model.with_structured_output(
+                schema, include_raw=True, method="function_calling"
+            )
         result = await structured.ainvoke(
             [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
         )

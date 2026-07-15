@@ -10,9 +10,21 @@ from app.llm.adapters import TokenUsage
 from app.llm.client import LLMClient
 from app.pipeline.checkpointer import get_checkpointer, setup_checkpointer_tables
 from app.pipeline.graph import compile_graph
+from app.pipeline.schemas import Evidence
 from app.pipeline.state import CaseState
 
 CRM_BASE = "http://localhost:8001"
+
+
+class _FakeRetriever:
+    async def retrieve(self, query: str) -> list[Evidence]:
+        return [
+            Evidence(
+                clause_id="AUTO-001",
+                text="Collision coverage up to $25,000.",
+                similarity=0.9,
+            )
+        ]
 
 
 class _TrackingAdapter:
@@ -65,7 +77,9 @@ async def test_worker_restart_resumes_without_rerunning_completed_node() -> None
 
     # Simulate a worker that completes "intake" then dies before "validate" runs.
     async with get_checkpointer() as checkpointer:
-        graph = compile_graph(llm_client, checkpointer, interrupt_after=["intake"])
+        graph = compile_graph(
+            llm_client, _FakeRetriever(), checkpointer, interrupt_after=["intake"]
+        )
         state_after_crash = await graph.ainvoke(initial_state, config=config)
 
     assert state_after_crash["status"] == "validating"
@@ -89,7 +103,7 @@ async def test_worker_restart_resumes_without_rerunning_completed_node() -> None
             )
         )
         async with get_checkpointer() as checkpointer:
-            graph = compile_graph(llm_client, checkpointer)
+            graph = compile_graph(llm_client, _FakeRetriever(), checkpointer)
             final_state = await graph.ainvoke(None, config=config)
 
     assert final_state["status"] == "drafted"

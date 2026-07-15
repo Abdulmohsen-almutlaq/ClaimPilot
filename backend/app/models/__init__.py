@@ -1,5 +1,6 @@
 from app.models.audit import AuditLog
 from app.models.case import Case
+from app.models.policy_clause import PolicyClause
 from app.models.user import User
 
-__all__ = ["AuditLog", "Case", "User"]
+__all__ = ["AuditLog", "Case", "PolicyClause", "User"]

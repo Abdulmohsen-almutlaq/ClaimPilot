@@ -26,6 +26,20 @@ class NodeConfig:
     use_fallback_model: bool
 
 
+@dataclass(frozen=True)
+class EmbeddingsConfig:
+    provider: str  # hashing | openai | local
+    base_url: str | None
+    model: str | None
+    dim: int
+
+
+@dataclass(frozen=True)
+class RetrievalConfig:
+    top_k: int
+    min_similarity: float
+
+
 class UnknownProviderError(Exception):
     pass
 
@@ -41,6 +55,8 @@ class ModelsConfig:
     defaults: dict[str, Any]
     node_overrides: dict[str, dict[str, Any]]
     prompt_versions: dict[str, str]
+    embeddings: EmbeddingsConfig
+    retrieval: RetrievalConfig
 
     def provider(self, name: str) -> ProviderConfig:
         try:
@@ -67,19 +83,20 @@ class ModelsConfig:
             raise UnknownPromptError(f"no active prompt version configured for: {name}") from exc
 
 
-def _resolve_config_path(path: str) -> Path:
+def resolve_config_path(path: str) -> Path:
+    """Resolve a configs/ path the same way regardless of caller: absolute paths
+    pass through; relative ones anchor to the backend/ directory (matches
+    Settings' env_file lookup), which is /app inside the containers."""
     candidate = Path(path)
     if candidate.is_absolute():
         return candidate
-    # app/llm/registry.py -> app/llm -> app -> backend; models_config_path is
-    # relative to the backend/ working directory (matches Settings' env_file lookup).
     backend_dir = Path(__file__).resolve().parents[2]
     return (backend_dir / candidate).resolve()
 
 
 @lru_cache
 def load_models_config(path: str | None = None) -> ModelsConfig:
-    config_path = _resolve_config_path(path or get_settings().models_config_path)
+    config_path = resolve_config_path(path or get_settings().models_config_path)
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
     providers = {
@@ -88,12 +105,24 @@ def load_models_config(path: str | None = None) -> ModelsConfig:
         )
         for name, cfg in raw["providers"].items()
     }
+    raw_embeddings = raw.get("embeddings") or {}
+    raw_retrieval = raw.get("retrieval") or {}
     return ModelsConfig(
         default_provider=raw["provider"],
         providers=providers,
         defaults=raw["defaults"],
         node_overrides=raw.get("nodes", {}),
         prompt_versions=raw.get("prompts", {}),
+        embeddings=EmbeddingsConfig(
+            provider=str(raw_embeddings.get("provider", "hashing")),
+            base_url=raw_embeddings.get("base_url"),
+            model=raw_embeddings.get("model"),
+            dim=int(raw_embeddings.get("dim", 384)),
+        ),
+        retrieval=RetrievalConfig(
+            top_k=int(raw_retrieval.get("top_k", 5)),
+            min_similarity=float(raw_retrieval.get("min_similarity", 0.05)),
+        ),
     )
 
 

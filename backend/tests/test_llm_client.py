@@ -5,7 +5,13 @@ from pydantic import BaseModel
 
 from app.llm.adapters import StructuredOutputError, TokenUsage
 from app.llm.client import LLMCallFailed, LLMClient
-from app.llm.registry import ModelsConfig, NodeConfig, ProviderConfig
+from app.llm.registry import (
+    EmbeddingsConfig,
+    ModelsConfig,
+    NodeConfig,
+    ProviderConfig,
+    RetrievalConfig,
+)
 
 
 class _Fields(BaseModel):
@@ -25,6 +31,8 @@ def _make_models_config(*, max_retries: int = 3, use_fallback_model: bool = Fals
         defaults={"temperature": 0.0, "timeout_seconds": 5, "max_retries": max_retries},
         node_overrides={"intake": {"use_fallback_model": use_fallback_model}},
         prompt_versions={"intake_extract": "v1"},
+        embeddings=EmbeddingsConfig(provider="hashing", base_url=None, model=None, dim=384),
+        retrieval=RetrievalConfig(top_k=5, min_similarity=0.05),
     )
 
 

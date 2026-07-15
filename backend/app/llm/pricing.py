@@ -7,6 +7,8 @@ _PRICING_PER_MILLION: dict[str, tuple[Decimal, Decimal]] = {
     "claude-sonnet-4-6": (Decimal("3.00"), Decimal("15.00")),
     "claude-haiku-4-5-20251001": (Decimal("0.80"), Decimal("4.00")),
     "gpt-4o-mini": (Decimal("0.15"), Decimal("0.60")),
+    "deepseek-chat": (Decimal("0.27"), Decimal("1.10")),
+    "deepseek-reasoner": (Decimal("0.55"), Decimal("2.19")),
 }
 _ZERO_PRICE = (Decimal("0"), Decimal("0"))
 

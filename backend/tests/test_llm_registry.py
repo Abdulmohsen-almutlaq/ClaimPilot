@@ -10,17 +10,26 @@ from app.llm.registry import (
 
 def test_load_models_config_reads_repo_config() -> None:
     config = load_models_config()
-    assert config.default_provider == "anthropic"
-    assert "anthropic" in config.providers
-    assert config.providers["anthropic"].model == "claude-sonnet-4-6"
+    assert config.default_provider == "deepseek"
+    assert set(config.providers) >= {"anthropic", "openai", "deepseek", "local"}
+    assert config.providers["deepseek"].model == "deepseek-chat"
+    assert config.providers["deepseek"].base_url == "https://api.deepseek.com/v1"
 
 
 def test_resolve_node_falls_back_to_defaults() -> None:
     config = load_models_config()
     node_cfg = config.resolve_node("intake")
-    assert node_cfg.provider == "anthropic"
+    assert node_cfg.provider == "deepseek"
     assert node_cfg.temperature == 0.0  # overridden for intake
     assert node_cfg.max_retries == config.defaults["max_retries"]
+
+
+def test_embeddings_and_retrieval_config_loaded() -> None:
+    config = load_models_config()
+    assert config.embeddings.provider == "hashing"
+    assert config.embeddings.dim == 384
+    assert config.retrieval.top_k == 5
+    assert 0 < config.retrieval.min_similarity < 1
 
 
 def test_provider_unknown_raises() -> None:

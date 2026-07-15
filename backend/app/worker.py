@@ -12,6 +12,7 @@ from app.models.case import Case
 from app.pipeline.checkpointer import get_checkpointer
 from app.pipeline.graph import compile_graph
 from app.pipeline.state import CaseState
+from app.rag.retrieve import Retriever, build_default_retriever
 
 _pool: ArqRedis | None = None
 
@@ -34,7 +35,11 @@ async def enqueue_case_pipeline(case_id: str) -> None:
 
 
 async def run_case_pipeline(
-    _ctx: dict[str, Any], case_id: str, *, llm_client: LLMClient | None = None
+    _ctx: dict[str, Any],
+    case_id: str,
+    *,
+    llm_client: LLMClient | None = None,
+    retriever: Retriever | None = None,
 ) -> None:
     case_uuid = uuid.UUID(case_id)
 
@@ -58,10 +63,11 @@ async def run_case_pipeline(
         }
 
     llm_client = llm_client or LLMClient()
+    retriever = retriever or build_default_retriever()
     config: RunnableConfig = {"configurable": {"thread_id": case_id}}
     try:
         async with get_checkpointer() as checkpointer:
-            graph = compile_graph(llm_client, checkpointer)
+            graph = compile_graph(llm_client, retriever, checkpointer)
             final_state = await graph.ainvoke(initial_state, config=config)
     except Exception as exc:
         async with session_factory() as session:
@@ -77,6 +83,7 @@ async def run_case_pipeline(
         if case is None:
             return
         case.status = final_state.get("status", case.status)
+        case.route = final_state.get("route")
         case.extracted_fields = final_state.get("extracted_fields")
         case.validation_result = final_state.get("validation_result")
         case.evidence = final_state.get("evidence")

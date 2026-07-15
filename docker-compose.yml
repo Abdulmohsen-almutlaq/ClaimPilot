@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:16
+    # postgres 16 + the pgvector extension (required by migration 0002)
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: claimpilot
       POSTGRES_PASSWORD: claimpilot

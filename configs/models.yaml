@@ -3,7 +3,7 @@
 # Swap `provider` (or a node's `provider` override) to move the whole app to a
 # different backend, including a local OpenAI-compatible server, with no code changes.
 
-provider: anthropic # anthropic | openai | local
+provider: deepseek # anthropic | openai | deepseek | local
 
 providers:
   anthropic:
@@ -15,6 +15,12 @@ providers:
     base_url: https://api.openai.com/v1
     model: gpt-4o-mini
     fallback_model: gpt-4o-mini
+
+  deepseek:
+    # OpenAI-compatible API; supports function calling (used for structured output).
+    base_url: https://api.deepseek.com/v1
+    model: deepseek-chat
+    fallback_model: deepseek-chat
 
   local:
     # Any OpenAI-compatible server: Ollama (http://localhost:11434/v1), vLLM, LM Studio.
@@ -37,6 +43,23 @@ nodes:
   qa:
     temperature: 0.0
     use_fallback_model: true # cheap model for the QA/judge pass, per spec 5.9
+
+# Embeddings backend for RAG. DeepSeek has no embeddings API, so this is configured
+# independently of the chat provider above.
+#   hashing — deterministic local signed n-gram hashing: free, offline, reproducible
+#             in CI; good enough for clause-level lexical retrieval on a small corpus.
+#   openai / local — any OpenAI-compatible /embeddings endpoint for dense semantic
+#             vectors. NOTE: the pgvector column is vector(384); switching to a model
+#             with a different dimension requires a new migration.
+embeddings:
+  provider: hashing # hashing | openai | local
+  base_url: null
+  model: null
+  dim: 384
+
+retrieval:
+  top_k: 5
+  min_similarity: 0.05 # results below this cosine similarity are discarded
 
 # Active prompt version per node. Bump here (after adding a new prompts/*.vN.md file)
 # to roll out a prompt change; the version is logged on every LLM call and audit row.

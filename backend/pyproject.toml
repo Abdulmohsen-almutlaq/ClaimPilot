@@ -23,6 +23,7 @@ dependencies = [
     "langchain-openai>=0.2",
     "langgraph-checkpoint-postgres>=2.0",
     "psycopg[binary,pool]>=3.2",
+    "pgvector>=0.3",
     "arq>=0.26",
 ]
 

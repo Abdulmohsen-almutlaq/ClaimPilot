@@ -19,7 +19,7 @@ migrate:
 	cd backend && alembic upgrade head
 
 seed:
-	cd backend && python -m app.db.seed
+	cd backend && python -m app.db.seed && python -m app.rag.ingest
 
 demo:
 	@echo "demo script lands in M8"

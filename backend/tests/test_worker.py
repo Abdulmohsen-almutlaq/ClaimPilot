@@ -11,9 +11,21 @@ from app.llm.adapters import StructuredOutputError, TokenUsage
 from app.llm.client import LLMClient
 from app.models.case import Case
 from app.pipeline.checkpointer import setup_checkpointer_tables
+from app.pipeline.schemas import Evidence
 from app.worker import run_case_pipeline
 
 CRM_BASE = "http://localhost:8001"
+
+
+class _FakeRetriever:
+    async def retrieve(self, query: str) -> list[Evidence]:
+        return [
+            Evidence(
+                clause_id="AUTO-001",
+                text="Collision coverage up to $25,000.",
+                similarity=0.9,
+            )
+        ]
 
 
 class _HappyPathAdapter:
@@ -85,7 +97,7 @@ async def test_run_case_pipeline_happy_path_updates_case() -> None:
                 },
             )
         )
-        await run_case_pipeline({}, str(case_id), llm_client=llm_client)
+        await run_case_pipeline({}, str(case_id), llm_client=llm_client, retriever=_FakeRetriever())
 
     async with session_factory() as session:
         case = await session.get(Case, case_id)
@@ -93,6 +105,8 @@ async def test_run_case_pipeline_happy_path_updates_case() -> None:
         assert case.status == "drafted"
         assert case.draft is not None
         assert case.draft["decision"] == "approve"
+        assert case.evidence is not None
+        assert case.evidence[0]["clause_id"] == "AUTO-001"
         assert case.token_cost_usd >= Decimal("0")
 
 
@@ -102,7 +116,7 @@ async def test_run_case_pipeline_records_error_on_failure() -> None:
     llm_client = LLMClient(adapter_factory=_AlwaysFailsAdapter)
 
     with pytest.raises(Exception, match="exhausted"):
-        await run_case_pipeline({}, str(case_id), llm_client=llm_client)
+        await run_case_pipeline({}, str(case_id), llm_client=llm_client, retriever=_FakeRetriever())
 
     async with session_factory() as session:
         case = await session.get(Case, case_id)

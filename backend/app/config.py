@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # token budgets live in configs/models.yaml — never duplicate them here.
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
+    deepseek_api_key: str | None = None
     local_llm_api_key: str | None = None  # some local OpenAI-compatible servers require one
 
     models_config_path: str = "../configs/models.yaml"
