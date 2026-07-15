@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import math
 import re
@@ -7,6 +8,8 @@ import httpx
 
 from app.config import get_settings
 from app.llm.registry import EmbeddingsConfig, load_models_config
+
+DEFAULT_FASTEMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 class EmbeddingBackend(Protocol):
@@ -22,11 +25,9 @@ class HashingEmbeddings:
     """Deterministic, dependency-free signed feature hashing over word unigrams and
     character trigrams, L2-normalized.
 
-    This is lexical, not semantic: it scores texts by shared words/spellings, which
-    is a solid baseline for clause-level retrieval on a small policy corpus and —
-    critically for the eval harness — is free, offline, and bit-for-bit reproducible
-    in CI. Swap to an OpenAI-compatible embeddings endpoint in configs/models.yaml
-    when semantic recall matters more than determinism.
+    This is lexical, not semantic: it scores texts by shared words/spellings.
+    It stays as the test/CI backend because it is free, offline, and bit-for-bit
+    reproducible; the app default is the `fastembed` transformer backend below.
     """
 
     def __init__(self, dim: int = 384) -> None:
@@ -54,6 +55,32 @@ class HashingEmbeddings:
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         return [self._embed_one(text) for text in texts]
+
+
+class FastEmbedEmbeddings:
+    """Semantic embeddings from a Hugging Face sentence-transformer, executed
+    locally via ONNX Runtime (Qdrant's open-source `fastembed` — no torch, no GPU,
+    no API key). The default model, all-MiniLM-L6-v2, emits 384-dim vectors that
+    fit the existing pgvector column.
+
+    The model is loaded lazily on first use so that constructing the backend
+    (e.g. in config-wiring tests) never touches the network or disk cache."""
+
+    def __init__(self, *, model: str, dim: int) -> None:
+        self._model_name = model
+        self._model: Any = None
+        self.dim = dim
+
+    def _encode(self, texts: list[str]) -> list[list[float]]:
+        if self._model is None:
+            from fastembed import TextEmbedding
+
+            self._model = TextEmbedding(model_name=self._model_name)
+        return [[float(x) for x in vec] for vec in self._model.embed(texts)]
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        # ONNX inference is CPU-bound and synchronous; keep the event loop free.
+        return await asyncio.to_thread(self._encode, texts)
 
 
 class OpenAICompatibleEmbeddings:
@@ -88,6 +115,8 @@ def build_embedding_backend(config: EmbeddingsConfig | None = None) -> Embedding
     cfg = config or load_models_config().embeddings
     if cfg.provider == "hashing":
         return HashingEmbeddings(dim=cfg.dim)
+    if cfg.provider == "fastembed":
+        return FastEmbedEmbeddings(model=cfg.model or DEFAULT_FASTEMBED_MODEL, dim=cfg.dim)
     if not cfg.base_url or not cfg.model:
         raise ValueError(
             f"embeddings provider '{cfg.provider}' requires base_url and model in models.yaml"

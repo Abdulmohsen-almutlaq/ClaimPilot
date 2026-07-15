@@ -52,11 +52,24 @@ line on. When in doubt, prefer boring and explicit over clever.
    `human_queue` with a reason. Nothing hangs in `queued` forever, nothing
    fails silently.
 
-9. **Leverage open source; hand-roll only with a reason.** The stack is OSS
-   end-to-end (FastAPI, LangGraph, pgvector, arq, pdfplumber). Hand-rolled
-   code needs a written justification in its docstring or commit — e.g. the
-   hashing embedder exists because sentence-transformers would add a ~2 GB
-   torch dependency and break eval determinism.
+9. **Leverage open source; hand-roll only with a reason.** Hand-rolled code
+   needs a written justification in its docstring or commit. Current map:
+
+   | Concern | Open-source project |
+   |---|---|
+   | API, validation, ORM, migrations | FastAPI, Pydantic v2, SQLAlchemy 2, Alembic |
+   | Agent graph + checkpoints | LangGraph (+ langgraph-checkpoint-postgres) |
+   | LLM provider adapters | LangChain (ChatAnthropic / ChatOpenAI) |
+   | Vector search | pgvector |
+   | RAG embeddings | fastembed (ONNX) running HF `all-MiniLM-L6-v2` |
+   | Queue / DLQ | arq + redis-py |
+   | PDF extraction | pdfplumber |
+   | Tests / lint / types | pytest, respx, ruff, mypy |
+
+   Justified hand-rolls: the **hashing embedder** (tests/CI only — offline and
+   bit-for-bit reproducible, where a model download would not be) and the
+   **circuit breaker** (~25 lines; aiobreaker/pybreaker don't offer the
+   injectable clock our deterministic half-open tests need).
 
 10. **Comments explain *why*, never *what*.** Especially: comments that record
     a live failure the code now prevents (see `retrieve.py`, `worker.py`,

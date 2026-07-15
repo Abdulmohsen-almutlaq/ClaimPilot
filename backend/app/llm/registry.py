@@ -28,7 +28,7 @@ class NodeConfig:
 
 @dataclass(frozen=True)
 class EmbeddingsConfig:
-    provider: str  # hashing | openai | local
+    provider: str  # fastembed | hashing | openai | local
     base_url: str | None
     model: str | None
     dim: int

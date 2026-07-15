@@ -54,15 +54,18 @@ nodes:
 
 # Embeddings backend for RAG. DeepSeek has no embeddings API, so this is configured
 # independently of the chat provider above.
-#   hashing — deterministic local signed n-gram hashing: free, offline, reproducible
-#             in CI; good enough for clause-level lexical retrieval on a small corpus.
-#   openai / local — any OpenAI-compatible /embeddings endpoint for dense semantic
-#             vectors. NOTE: the pgvector column is vector(384); switching to a model
-#             with a different dimension requires a new migration.
+#   fastembed — Hugging Face sentence-transformer run locally via ONNX Runtime
+#             (open-source fastembed): real semantic vectors, no torch, no API key.
+#   hashing — deterministic local signed n-gram hashing: free, offline, reproducible;
+#             tests pin this so CI never downloads a model.
+#   openai / local — any OpenAI-compatible /embeddings endpoint.
+# NOTE: the pgvector column is vector(384); switching to a model with a different
+# dimension requires a new migration, and any model switch requires re-ingesting
+# the corpus (make seed) since stored vectors must come from the same model.
 embeddings:
-  provider: hashing # hashing | openai | local
+  provider: fastembed # fastembed | hashing | openai | local
   base_url: null
-  model: null
+  model: sentence-transformers/all-MiniLM-L6-v2 # 384-dim, symmetric (no query prefix)
   dim: 384
 
 retrieval:

@@ -3,7 +3,7 @@ import math
 import pytest
 
 from app.llm.registry import EmbeddingsConfig
-from app.rag.embeddings import HashingEmbeddings, build_embedding_backend
+from app.rag.embeddings import FastEmbedEmbeddings, HashingEmbeddings, build_embedding_backend
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
@@ -42,8 +42,17 @@ async def test_empty_text_embeds_to_zero_vector_without_error() -> None:
     assert all(v == 0.0 for v in vec)
 
 
-def test_build_backend_hashing_default() -> None:
+def test_build_backend_default_is_fastembed_transformer() -> None:
     backend = build_embedding_backend()
+    assert isinstance(backend, FastEmbedEmbeddings)
+    assert backend.dim == 384
+    # lazy: wiring the backend must not download/load the model (keeps CI offline)
+    assert backend._model is None
+
+
+def test_build_backend_hashing() -> None:
+    config = EmbeddingsConfig(provider="hashing", base_url=None, model=None, dim=384)
+    backend = build_embedding_backend(config)
     assert isinstance(backend, HashingEmbeddings)
     assert backend.dim == 384
 
