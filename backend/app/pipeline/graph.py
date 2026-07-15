@@ -9,6 +9,8 @@ from app.llm.client import LLMClient
 from app.pipeline.nodes.draft import run_draft
 from app.pipeline.nodes.evidence import run_evidence
 from app.pipeline.nodes.intake import run_intake
+from app.pipeline.nodes.qa import MAX_QA_ATTEMPTS, run_qa
+from app.pipeline.nodes.route import run_route
 from app.pipeline.nodes.validate import run_validate
 from app.pipeline.state import CaseState
 from app.rag.retrieve import Retriever
@@ -21,6 +23,15 @@ def _route_after_validate(state: CaseState) -> Literal["evidence", "needs_info"]
 
 def _route_after_evidence(state: CaseState) -> Literal["draft", "no_evidence"]:
     return "draft" if state.get("evidence") else "no_evidence"
+
+
+def _route_after_qa(state: CaseState) -> Literal["route", "draft"]:
+    qa = state.get("qa_result") or {}
+    if qa.get("passed"):
+        return "route"
+    if state.get("qa_attempts", 0) < MAX_QA_ATTEMPTS:
+        return "draft"  # regenerate once with the QA reviewer's feedback
+    return "route"  # second failure: route decides (it will send this to a human)
 
 
 async def _mark_needs_info(state: CaseState) -> dict[str, str]:
@@ -42,6 +53,8 @@ def build_graph(
     graph.add_node("validate", run_validate)
     graph.add_node("evidence", partial(run_evidence, retriever=retriever))
     graph.add_node("draft", partial(run_draft, llm_client=llm_client))
+    graph.add_node("qa", partial(run_qa, llm_client=llm_client))
+    graph.add_node("route", run_route)
     graph.add_node("needs_info", _mark_needs_info)
     graph.add_node("no_evidence", _mark_no_evidence)
 
@@ -53,7 +66,9 @@ def build_graph(
     graph.add_conditional_edges(
         "evidence", _route_after_evidence, {"draft": "draft", "no_evidence": "no_evidence"}
     )
-    graph.add_edge("draft", END)
+    graph.add_edge("draft", "qa")
+    graph.add_conditional_edges("qa", _route_after_qa, {"route": "route", "draft": "draft"})
+    graph.add_edge("route", END)
     graph.add_edge("needs_info", END)
     graph.add_edge("no_evidence", END)
 

@@ -80,9 +80,12 @@ async def run_case_pipeline(
             "validation_result": case.validation_result,
             "evidence": case.evidence or [],
             "draft": case.draft,
+            "qa_result": case.qa_result,
+            "qa_attempts": 0,
             "model_versions": case.model_versions or {},
             "prompt_versions": case.prompt_versions or {},
             "token_cost_usd": float(case.token_cost_usd),
+            "tokens_used": case.tokens_used,
             "errors": [],
         }
 
@@ -129,13 +132,16 @@ async def run_case_pipeline(
             return
         case.status = final_state.get("status", case.status)
         case.route = final_state.get("route")
+        case.route_reason = final_state.get("route_reason")
         case.extracted_fields = final_state.get("extracted_fields")
         case.validation_result = final_state.get("validation_result")
         case.evidence = final_state.get("evidence")
         case.draft = final_state.get("draft")
+        case.qa_result = final_state.get("qa_result")
         case.model_versions = final_state.get("model_versions")
         case.prompt_versions = final_state.get("prompt_versions")
         case.token_cost_usd = Decimal(str(final_state.get("token_cost_usd", 0)))
+        case.tokens_used = int(final_state.get("tokens_used", 0))
         await session.commit()
 
     await _audit(

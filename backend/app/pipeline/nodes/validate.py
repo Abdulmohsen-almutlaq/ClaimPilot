@@ -1,25 +1,15 @@
-from functools import lru_cache
 from typing import Any
 
-import yaml
-
-from app.config import get_settings
-from app.llm.registry import resolve_config_path
+from app.pipeline.domain_config import load_domain_config
 from app.pipeline.schemas import ClaimFields, ValidationResult
 from app.pipeline.state import CaseState
 from app.tools import crm
 from app.tools.crm import CRMNotFoundError, CRMUnavailableError
 
 
-@lru_cache
-def _load_domain_config() -> dict[str, Any]:
-    path = resolve_config_path(get_settings().domain_config_path)
-    return yaml.safe_load(path.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
-
-
 async def run_validate(state: CaseState) -> dict[str, Any]:
     fields = ClaimFields.model_validate(state.get("extracted_fields") or {})
-    domain = _load_domain_config()
+    domain = load_domain_config()
     reasons: list[str] = []
 
     for field_name in domain["required_fields"]:

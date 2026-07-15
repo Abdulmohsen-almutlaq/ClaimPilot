@@ -11,8 +11,11 @@ class CaseState(TypedDict, total=False):
     evidence: list[dict[str, Any]]
     draft: dict[str, Any] | None
     qa_result: dict[str, Any] | None
+    qa_attempts: int
     route: str | None
+    route_reason: str | None
     errors: list[str]
     token_cost_usd: float
+    tokens_used: int
     model_versions: dict[str, str]
     prompt_versions: dict[str, str]

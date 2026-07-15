@@ -28,4 +28,5 @@ async def run_intake(state: CaseState, *, llm_client: LLMClient) -> dict[str, An
         "model_versions": {**state.get("model_versions", {}), "intake": result.model_used},
         "prompt_versions": {**state.get("prompt_versions", {}), "intake": prompt_version},
         "token_cost_usd": state.get("token_cost_usd", 0.0) + float(result.cost_usd),
+        "tokens_used": state.get("tokens_used", 0) + result.input_tokens + result.output_tokens,
     }

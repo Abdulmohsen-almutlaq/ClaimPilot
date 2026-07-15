@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Numeric, String, Text
+from sqlalchemy import Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,7 +24,9 @@ class Case(Base, TimestampMixin):
     draft: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     qa_result: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     route: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    route_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     errors: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
     token_cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False, default=0)
+    tokens_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     model_versions: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     prompt_versions: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

@@ -31,7 +31,9 @@ class CaseDetailResponse(BaseModel):
     extracted_fields: dict[str, Any] | None
     validation_result: dict[str, Any] | None
     draft: dict[str, Any] | None
+    qa_result: dict[str, Any] | None
     route: str | None
+    route_reason: str | None
 
 
 @router.post("", response_model=CaseCreatedResponse, status_code=status.HTTP_201_CREATED)
@@ -76,7 +78,9 @@ async def get_case(
         extracted_fields=case.extracted_fields,
         validation_result=case.validation_result,
         draft=case.draft,
+        qa_result=case.qa_result,
         route=case.route,
+        route_reason=case.route_reason,
     )
 
 

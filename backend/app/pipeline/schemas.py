@@ -35,5 +35,13 @@ class DecisionDraft(BaseModel):
 
 
 class QAResult(BaseModel):
+    """Rubric from spec 5.1: each check is reported separately by the QA model;
+    `passed` is recomputed in the qa node as the AND of the four checks — the
+    model's own aggregate is never trusted (principle 1)."""
+
     passed: bool
+    claims_supported: bool
+    citations_relevant: bool
+    decision_consistent: bool
+    professional_tone: bool
     reasons: list[str] = Field(default_factory=list)
