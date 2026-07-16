@@ -136,7 +136,10 @@ async def get_case(
 
 
 class DecisionRequest(BaseModel):
-    decision: Literal["approve", "deny"]
+    # Same vocabulary as DecisionDraft.decision, so the override comparison
+    # (human vs AI) is an exact string match — "deny" vs "reject" would count
+    # agreement as an override.
+    decision: Literal["approve", "reject"]
     notes: str | None = None
 
 
@@ -175,7 +178,7 @@ async def decide_case(
     case.decided_by = user.email
     case.decided_at = datetime.now(UTC)
     case.overridden = overridden
-    case.status = "approved" if request.decision == "approve" else "denied"
+    case.status = "approved" if request.decision == "approve" else "rejected"
 
     # write_audit_event commits, so the case update and its audit entry land
     # in one transaction — a decision without a trail must be impossible.

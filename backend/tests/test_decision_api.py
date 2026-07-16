@@ -83,7 +83,7 @@ def test_approve_matching_ai_is_not_an_override(client: TestClient) -> None:
 
 
 def test_decision_against_ai_draft_is_an_override(client: TestClient) -> None:
-    case_id = _queued_human_case(ai_decision="deny")
+    case_id = _queued_human_case(ai_decision="reject")
     token = _login(client, "approver@demo.io")
 
     resp = _decide(client, token, case_id, "approve")
@@ -96,18 +96,18 @@ def test_decided_case_cannot_be_decided_again(client: TestClient) -> None:
     case_id = _queued_human_case()
     token = _login(client, "approver@demo.io")
 
-    assert _decide(client, token, case_id, "deny").status_code == 200
+    assert _decide(client, token, case_id, "reject").status_code == 200
     assert _decide(client, token, case_id, "approve").status_code == 409
 
 
 def test_decision_is_recorded_on_case_and_in_audit_trail(client: TestClient) -> None:
     case_id = _queued_human_case()
     token = _login(client, "approver@demo.io")
-    _decide(client, token, case_id, "deny")
+    _decide(client, token, case_id, "reject")
 
     detail = client.get(f"/cases/{case_id}", headers={"Authorization": f"Bearer {token}"}).json()
-    assert detail["status"] == "denied"
-    assert detail["human_decision"] == "deny"
+    assert detail["status"] == "rejected"
+    assert detail["human_decision"] == "reject"
     assert detail["overridden"] is True
     assert detail["decided_by"] == "approver@demo.io"
     assert detail["decided_at"] is not None

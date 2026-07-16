@@ -12,7 +12,7 @@ router = APIRouter(prefix="/metrics", tags=["metrics"])
 
 # Statuses where processing has finished and an outcome exists. automation_rate
 # is measured against these only — in-flight cases would dilute the KPI.
-_TERMINAL_STATUSES = ("auto_approved", "approved", "denied")
+_TERMINAL_STATUSES = ("auto_approved", "approved", "rejected")
 
 
 class MetricsResponse(BaseModel):

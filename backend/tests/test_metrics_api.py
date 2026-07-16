@@ -69,7 +69,7 @@ def test_metrics_shape_and_self_consistency(client: TestClient) -> None:
     assert body["overridden_cases"] <= body["human_decided_cases"]
     assert body["total_cases"] >= 1
 
-    terminal_statuses = ("auto_approved", "approved", "denied")
+    terminal_statuses = ("auto_approved", "approved", "rejected")
     terminal = sum(body["cases_by_status"].get(s, 0) for s in terminal_statuses)
     if terminal:
         expected = body["cases_by_status"].get("auto_approved", 0) / terminal
@@ -84,7 +84,7 @@ def test_metrics_shape_and_self_consistency(client: TestClient) -> None:
 def test_metrics_override_rate_reflects_decisions(client: TestClient) -> None:
     token = _login(client, "approver@demo.io")
     # AI said deny, human approves -> one more override on the books.
-    case_id = _queued_human_case(ai_decision="deny")
+    case_id = _queued_human_case(ai_decision="reject")
     before = client.get("/metrics", headers={"Authorization": f"Bearer {token}"}).json()
 
     assert _decide(client, token, case_id, "approve").status_code == 200

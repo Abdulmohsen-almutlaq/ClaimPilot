@@ -95,6 +95,14 @@ services:
       - ./backend/app:/app/app
       - ./configs:/configs:ro
 
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      app:
+        condition: service_started
+
 volumes:
   postgres_data:
   crm_postgres_data:
