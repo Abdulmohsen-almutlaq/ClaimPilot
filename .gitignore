@@ -13,3 +13,9 @@ dist/
 build/
 node_modules/
 .DS_Store
+
+# local AI-tooling artifacts (never production)
+graphify-out/
+.claude/
+.agents/
+skills-lock.json
