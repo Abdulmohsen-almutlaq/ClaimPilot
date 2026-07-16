@@ -121,7 +121,8 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   me: () => request<Me>("/auth/me"),
-  listCases: (status: string) => request<CaseSummary[]>(`/cases?status=${status}`),
+  listCases: (status: string) =>
+    request<CaseSummary[]>(`/cases?status=${status}`),
   getCase: (caseId: string) => request<CaseDetail>(`/cases/${caseId}`),
   decide: (caseId: string, decision: HumanDecision, notes: string) =>
     request<DecisionResult>(`/cases/${caseId}/decision`, {

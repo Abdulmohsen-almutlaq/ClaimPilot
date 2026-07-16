@@ -1,3 +1,4 @@
+import { FileCheck2Icon } from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router"
 
@@ -9,7 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { ApiError, api, setToken } from "@/lib/api"
@@ -37,11 +44,25 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center p-6">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted/40 p-6">
+      <div className="flex items-center gap-3">
+        <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <FileCheck2Icon className="size-5" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-lg font-semibold tracking-tight">
+            ClaimPilot
+          </span>
+          <span className="text-xs text-muted-foreground">
+            Claims decision workbench
+          </span>
+        </div>
+      </div>
+
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>ClaimPilot</CardTitle>
-          <CardDescription>Sign in to review claims</CardDescription>
+          <CardTitle>Sign in</CardTitle>
+          <CardDescription>Review queued claims and track KPIs</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit}>
@@ -69,16 +90,15 @@ export function LoginPage() {
                   aria-invalid={error ? true : undefined}
                   required
                 />
-                {error ? (
-                  <FieldError>{error}</FieldError>
-                ) : (
-                  <FieldDescription>Demo approver: approver@demo.io / demo</FieldDescription>
-                )}
+                {error && <FieldError>{error}</FieldError>}
               </Field>
-              <Button type="submit" disabled={pending}>
+              <Button type="submit" disabled={pending} className="w-full">
                 {pending && <Spinner data-icon="inline-start" />}
                 Sign in
               </Button>
+              <FieldDescription className="text-center">
+                Demo approver: approver@demo.io / demo
+              </FieldDescription>
             </FieldGroup>
           </form>
         </CardContent>

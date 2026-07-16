@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
+import {
+  CircleDollarSignIcon,
+  InboxIcon,
+  UserRoundCheckIcon,
+  ZapIcon,
+  type LucideIcon,
+} from "lucide-react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
+import { PageHeader } from "@/components/page-header"
 import {
   Card,
   CardContent,
@@ -16,6 +24,7 @@ import {
 } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
+import { statusLabel } from "@/lib/format"
 
 const chartConfig = {
   count: { label: "Cases", color: "var(--chart-1)" },
@@ -25,12 +34,29 @@ function percent(value: number | null): string {
   return value === null ? "—" : `${(value * 100).toFixed(1)}%`
 }
 
-function Kpi({ label, value, hint }: { label: string; value: string; hint: string }) {
+function Kpi({
+  icon: Icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: LucideIcon
+  label: string
+  value: string
+  hint: string
+}) {
   return (
     <Card>
       <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-3xl tabular-nums">{value}</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardDescription>{label}</CardDescription>
+          <div className="flex size-8 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+            <Icon className="size-4" />
+          </div>
+        </div>
+        <CardTitle className="text-3xl font-semibold tracking-tight tabular-nums">
+          {value}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">{hint}</p>
@@ -48,42 +74,58 @@ export function MetricsPage() {
 
   if (isPending || !metrics) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-36 w-full" />
-        ))}
-      </div>
+      <>
+        <PageHeader
+          title="Metrics"
+          description="Live KPIs computed from every case on record."
+        />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 w-full" />
+          ))}
+        </div>
+        <Skeleton className="h-80 w-full" />
+      </>
     )
   }
 
   const statusData = Object.entries(metrics.cases_by_status)
-    .map(([status, count]) => ({ status, count }))
+    .map(([status, count]) => ({ status: statusLabel(status), count }))
     .sort((a, b) => b.count - a.count)
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <>
+      <PageHeader
+        title="Metrics"
+        description="Live KPIs computed from every case on record."
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
+          icon={ZapIcon}
           label="Automation rate"
           value={percent(metrics.automation_rate)}
           hint="Completed cases decided without a human"
         />
         <Kpi
+          icon={UserRoundCheckIcon}
           label="Override rate"
           value={percent(metrics.override_rate)}
-          hint={`Humans disagreed with the AI on ${metrics.overridden_cases} of ${metrics.human_decided_cases} decisions`}
+          hint={`Humans disagreed on ${metrics.overridden_cases} of ${metrics.human_decided_cases} decisions`}
         />
         <Kpi
+          icon={InboxIcon}
           label="Queue depth"
-          value={String(metrics.human_queue_depth)}
+          value={metrics.human_queue_depth.toLocaleString()}
           hint="Cases waiting for human review"
         />
         <Kpi
+          icon={CircleDollarSignIcon}
           label="LLM cost"
           value={`$${metrics.total_token_cost_usd.toFixed(2)}`}
           hint={
             metrics.avg_cost_per_case_usd !== null
-              ? `$${metrics.avg_cost_per_case_usd.toFixed(4)} per case, ${metrics.total_tokens.toLocaleString()} tokens`
+              ? `$${metrics.avg_cost_per_case_usd.toFixed(4)} per case · ${metrics.total_tokens.toLocaleString()} tokens`
               : "No cases processed yet"
           }
         />
@@ -97,17 +139,36 @@ export function MetricsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-64 w-full">
-            <BarChart data={statusData} accessibilityLayer>
+          <ChartContainer config={chartConfig} className="h-72 w-full">
+            <BarChart data={statusData} accessibilityLayer margin={{ top: 8 }}>
               <CartesianGrid vertical={false} />
-              <XAxis dataKey="status" tickLine={false} axisLine={false} />
-              <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} />
+              <XAxis
+                dataKey="status"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                interval={0}
+                angle={-20}
+                textAnchor="end"
+                height={48}
+              />
+              <YAxis
+                allowDecimals={false}
+                tickLine={false}
+                axisLine={false}
+                width={36}
+              />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="count" fill="var(--color-count)" radius={4} />
+              <Bar
+                dataKey="count"
+                fill="var(--color-count)"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={48}
+              />
             </BarChart>
           </ChartContainer>
         </CardContent>
       </Card>
-    </div>
+    </>
   )
 }
