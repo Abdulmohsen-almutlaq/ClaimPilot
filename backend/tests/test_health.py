@@ -6,4 +6,4 @@ def test_health_returns_status(client: TestClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] in {"ok", "degraded"}
-    assert set(body["dependencies"]) == {"db", "redis", "llm", "crm"}
+    assert set(body["dependencies"]) == {"db", "redis", "llm"}

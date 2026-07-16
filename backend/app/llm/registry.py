@@ -28,8 +28,7 @@ class NodeConfig:
 
 @dataclass(frozen=True)
 class EmbeddingsConfig:
-    provider: str  # fastembed | hashing | openai | local
-    base_url: str | None
+    # fastembed is the only backend; None falls back to the default model.
     model: str | None
     dim: int
 
@@ -121,8 +120,6 @@ def load_models_config(path: str | None = None) -> ModelsConfig:
         node_overrides=raw.get("nodes", {}),
         prompt_versions=raw.get("prompts", {}),
         embeddings=EmbeddingsConfig(
-            provider=str(raw_embeddings.get("provider", "hashing")),
-            base_url=raw_embeddings.get("base_url"),
             model=raw_embeddings.get("model"),
             dim=int(raw_embeddings.get("dim", 384)),
         ),

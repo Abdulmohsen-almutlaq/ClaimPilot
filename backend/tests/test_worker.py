@@ -1,10 +1,8 @@
 import uuid
 from decimal import Decimal
 
-import httpx
 import pytest
-import respx
-from fakes import ACTIVE_AUTO_POLICY, FakeRetriever, SchemaAwareAdapter
+from fakes import FakeRetriever, SchemaAwareAdapter
 from pydantic import BaseModel
 
 from app.audit.writer import get_audit_trail
@@ -14,8 +12,6 @@ from app.llm.client import LLMClient
 from app.models.case import Case
 from app.pipeline.checkpointer import setup_checkpointer_tables
 from app.worker import run_case_pipeline
-
-CRM_BASE = "http://localhost:8001"
 
 
 class _AlwaysFailsAdapter:
@@ -48,11 +44,7 @@ async def test_run_case_pipeline_happy_path_updates_case() -> None:
     SchemaAwareAdapter.reset()
     llm_client = LLMClient(adapter_factory=SchemaAwareAdapter)
 
-    with respx.mock(base_url=CRM_BASE) as mock:
-        mock.get("/policies/POL-AUTO-001").mock(
-            return_value=httpx.Response(200, json=ACTIVE_AUTO_POLICY)
-        )
-        await run_case_pipeline({}, str(case_id), llm_client=llm_client, retriever=FakeRetriever())
+    await run_case_pipeline({}, str(case_id), llm_client=llm_client, retriever=FakeRetriever())
 
     async with session_factory() as session:
         case = await session.get(Case, case_id)

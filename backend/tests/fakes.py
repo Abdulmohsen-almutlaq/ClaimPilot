@@ -94,12 +94,3 @@ class FakeRetriever:
         ]
 
 
-ACTIVE_AUTO_POLICY: dict[str, Any] = {
-    "policy_number": "POL-AUTO-001",
-    "customer_id": "cust-1001",
-    "status": "active",
-    "category": "auto",
-    "coverage_limit": 25000.0,
-    "effective_date": "2025-01-01",
-    "expiry_date": "2026-12-31",
-}

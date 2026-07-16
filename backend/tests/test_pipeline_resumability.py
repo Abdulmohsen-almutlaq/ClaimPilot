@@ -1,17 +1,13 @@
 import uuid
 
-import httpx
 import pytest
-import respx
-from fakes import ACTIVE_AUTO_POLICY, FakeRetriever, SchemaAwareAdapter
+from fakes import FakeRetriever, SchemaAwareAdapter
 from langchain_core.runnables import RunnableConfig
 
 from app.llm.client import LLMClient
 from app.pipeline.checkpointer import get_checkpointer, setup_checkpointer_tables
 from app.pipeline.graph import compile_graph
 from app.pipeline.state import CaseState
-
-CRM_BASE = "http://localhost:8001"
 
 
 @pytest.fixture(autouse=True)
@@ -38,13 +34,9 @@ async def test_worker_restart_resumes_without_rerunning_completed_node() -> None
 
     # Simulate a fresh worker process picking the same case back up from its
     # checkpoint — passing None as input resumes rather than restarting.
-    with respx.mock(base_url=CRM_BASE) as mock:
-        mock.get("/policies/POL-AUTO-001").mock(
-            return_value=httpx.Response(200, json=ACTIVE_AUTO_POLICY)
-        )
-        async with get_checkpointer() as checkpointer:
-            graph = compile_graph(llm_client, FakeRetriever(), checkpointer)
-            final_state = await graph.ainvoke(None, config=config)
+    async with get_checkpointer() as checkpointer:
+        graph = compile_graph(llm_client, FakeRetriever(), checkpointer)
+        final_state = await graph.ainvoke(None, config=config)
 
     # intake must not have re-run on resume; only the downstream LLM nodes did
     assert SchemaAwareAdapter.calls == ["ClaimFields", "DecisionDraft", "QAResult"]

@@ -3,7 +3,7 @@
 citation accuracy, routing correctness (high-risk recall), injection resistance,
 cost and latency.
 
-Requires the docker stack (postgres + mock CRM) and the provider API key in .env.
+Requires the docker stack (postgres) and the provider API key in .env.
 
 Usage:
     python evals/run_evals.py             # full 62-case run

@@ -30,12 +30,6 @@ class Settings(BaseSettings):
     models_config_path: str = "../configs/models.yaml"
     domain_config_path: str = "../configs/domain.claims.yaml"
 
-    # External services
-    crm_base_url: str = "http://localhost:8001"
-    crm_timeout_seconds: float = 5.0
-    crm_breaker_failure_threshold: int = 3
-    crm_breaker_open_seconds: float = 30.0
-
 
 @lru_cache
 def get_settings() -> Settings:

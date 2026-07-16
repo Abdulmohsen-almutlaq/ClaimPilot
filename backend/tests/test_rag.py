@@ -1,3 +1,6 @@
+import hashlib
+import math
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -6,9 +9,38 @@ from sqlalchemy import delete
 
 from app.db.session import session_factory
 from app.models.policy_clause import PolicyClause
-from app.rag.embeddings import HashingEmbeddings
 from app.rag.ingest import ingest_corpus, load_corpus, parse_clauses
 from app.rag.retrieve import PgVectorRetriever
+
+_TOKEN_RE = re.compile(r"[^\W_]+")
+
+
+class _StubEmbeddings:
+    """Deterministic lexical test embedder (signed feature hashing over word
+    unigrams + char trigrams, L2-normalized). The product ships exactly one
+    backend — the fastembed transformer — but retrieval-logic tests need
+    offline, bit-for-bit reproducible vectors, which a real model download in
+    CI would break."""
+
+    def __init__(self, dim: int = 384) -> None:
+        self.dim = dim
+
+    def _embed_one(self, text: str) -> list[float]:
+        words = _TOKEN_RE.findall(text.lower())
+        features = list(words)
+        for word in words:
+            padded = f"#{word}#"
+            features.extend(padded[i : i + 3] for i in range(len(padded) - 2))
+        vec = [0.0] * self.dim
+        for feature in features:
+            digest = hashlib.md5(feature.encode()).digest()
+            bucket = int.from_bytes(digest[:4], "little") % self.dim
+            vec[bucket] += 1.0 if digest[4] & 1 else -1.0
+        norm = math.sqrt(sum(v * v for v in vec))
+        return [v / norm for v in vec] if norm > 0 else vec
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed_one(text) for text in texts]
 
 # Ingestion/retrieval tests run against a SYNTHETIC corpus in a namespaced
 # category ("autotest"), never the live configs/policies corpus: ingest upserts
@@ -55,7 +87,7 @@ def test_load_corpus_reads_all_policy_files() -> None:
 @pytest.fixture
 async def _ingested_corpus(tmp_path: Path) -> AsyncIterator[int]:
     (tmp_path / "autotest.md").write_text(_TEST_CORPUS, encoding="utf-8")
-    count = await ingest_corpus(str(tmp_path), embedder=HashingEmbeddings(dim=384))
+    count = await ingest_corpus(str(tmp_path), embedder=_StubEmbeddings(dim=384))
     yield count
     async with session_factory() as session:
         await session.execute(delete(PolicyClause).where(PolicyClause.category == "autotest"))
@@ -63,13 +95,13 @@ async def _ingested_corpus(tmp_path: Path) -> AsyncIterator[int]:
 
 
 async def test_ingest_is_idempotent(_ingested_corpus: int, tmp_path: Path) -> None:
-    count_again = await ingest_corpus(str(tmp_path), embedder=HashingEmbeddings(dim=384))
+    count_again = await ingest_corpus(str(tmp_path), embedder=_StubEmbeddings(dim=384))
     assert count_again == _ingested_corpus == 3
 
 
 async def test_retrieval_ranks_matching_clauses_first(_ingested_corpus: int) -> None:
     retriever = PgVectorRetriever(
-        embedder=HashingEmbeddings(dim=384), top_k=5, min_similarity=0.05
+        embedder=_StubEmbeddings(dim=384), top_k=5, min_similarity=0.05
     )
     evidence = await retriever.retrieve(
         "auto insurance claim rear-end collision vehicle damage repair",
@@ -84,7 +116,7 @@ async def test_retrieval_ranks_matching_clauses_first(_ingested_corpus: int) -> 
 
 async def test_retrieval_filters_below_similarity_floor(_ingested_corpus: int) -> None:
     retriever = PgVectorRetriever(
-        embedder=HashingEmbeddings(dim=384), top_k=5, min_similarity=0.99
+        embedder=_StubEmbeddings(dim=384), top_k=5, min_similarity=0.99
     )
     evidence = await retriever.retrieve(
         "zzzz qqqq xyzzy plugh unrelated gibberish", category="autotest"
@@ -94,7 +126,7 @@ async def test_retrieval_filters_below_similarity_floor(_ingested_corpus: int) -
 
 async def test_category_scoping_recovers_paraphrased_claims(_ingested_corpus: int) -> None:
     retriever = PgVectorRetriever(
-        embedder=HashingEmbeddings(dim=384), top_k=5, min_similarity=0.05
+        embedder=_StubEmbeddings(dim=384), top_k=5, min_similarity=0.05
     )
     # Regression for a live failure: an LLM paraphrase of a collision claim
     # ("rear-ended ... bumper and trunk", never the word "collision") pulled

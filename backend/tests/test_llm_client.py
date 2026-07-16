@@ -32,7 +32,7 @@ def _make_models_config(*, max_retries: int = 3, use_fallback_model: bool = Fals
         defaults={"temperature": 0.0, "timeout_seconds": 5, "max_retries": max_retries},
         node_overrides={"intake": {"use_fallback_model": use_fallback_model}},
         prompt_versions={"intake_extract": "v1"},
-        embeddings=EmbeddingsConfig(provider="hashing", base_url=None, model=None, dim=384),
+        embeddings=EmbeddingsConfig(model=None, dim=384),
         retrieval=RetrievalConfig(top_k=5, min_similarity=0.05),
         guardrails=GuardrailsConfig(pii_redaction=True),
     )

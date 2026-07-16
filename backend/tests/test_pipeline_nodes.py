@@ -1,5 +1,3 @@
-import httpx
-import respx
 from pydantic import BaseModel
 
 from app.llm.adapters import TokenUsage
@@ -9,7 +7,8 @@ from app.pipeline.nodes.intake import run_intake
 from app.pipeline.nodes.validate import run_validate
 from app.pipeline.state import CaseState
 
-CRM_BASE = "http://localhost:8001"
+# Validate reads policies from the app DB; conftest seeds POL-AUTO-001 (active,
+# auto) and POL-HEALTH-003 (lapsed) once per session.
 
 
 class _FakeIntakeAdapter:
@@ -73,22 +72,7 @@ async def test_run_validate_active_policy_is_valid() -> None:
     }
     state: CaseState = {"extracted_fields": fields}
 
-    with respx.mock(base_url=CRM_BASE) as mock:
-        mock.get("/policies/POL-AUTO-001").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "policy_number": "POL-AUTO-001",
-                    "customer_id": "cust-1001",
-                    "status": "active",
-                    "category": "auto",
-                    "coverage_limit": 25000.0,
-                    "effective_date": "2025-01-01",
-                    "expiry_date": "2026-12-31",
-                },
-            )
-        )
-        update = await run_validate(state)
+    update = await run_validate(state)
 
     assert update["validation_result"]["valid"] is True
     assert update["status"] == "validated"
@@ -116,22 +100,7 @@ async def test_run_validate_lapsed_policy_is_invalid() -> None:
     }
     state: CaseState = {"extracted_fields": fields}
 
-    with respx.mock(base_url=CRM_BASE) as mock:
-        mock.get("/policies/POL-HEALTH-003").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "policy_number": "POL-HEALTH-003",
-                    "customer_id": "cust-1003",
-                    "status": "lapsed",
-                    "category": "health",
-                    "coverage_limit": 50000.0,
-                    "effective_date": "2023-01-01",
-                    "expiry_date": "2024-01-01",
-                },
-            )
-        )
-        update = await run_validate(state)
+    update = await run_validate(state)
 
     assert update["validation_result"]["valid"] is False
     assert any("lapsed" in reason for reason in update["validation_result"]["reasons"])
@@ -148,9 +117,7 @@ async def test_run_validate_unknown_policy_is_invalid() -> None:
     }
     state: CaseState = {"extracted_fields": fields}
 
-    with respx.mock(base_url=CRM_BASE) as mock:
-        mock.get("/policies/POL-DOES-NOT-EXIST").mock(return_value=httpx.Response(404))
-        update = await run_validate(state)
+    update = await run_validate(state)
 
     assert update["validation_result"]["valid"] is False
     assert any("not found" in reason for reason in update["validation_result"]["reasons"])

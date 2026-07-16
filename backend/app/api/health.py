@@ -20,7 +20,6 @@ async def health() -> HealthResponse:
         "db": "ok" if db_ok else "down",
         "redis": "ok" if redis_ok else "down",
         "llm": "not_configured",
-        "crm": "not_configured",
     }
     overall = "ok" if db_ok and redis_ok else "degraded"
     return HealthResponse(status=overall, dependencies=dependencies)

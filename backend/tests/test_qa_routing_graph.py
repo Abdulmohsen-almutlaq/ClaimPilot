@@ -1,22 +1,13 @@
-"""End-to-end graph tests for the QA regenerate loop and routing (no DB —
-compiled without a checkpointer; CRM mocked at the HTTP boundary)."""
+"""End-to-end graph tests for the QA regenerate loop and routing (compiled
+without a checkpointer; validate reads the conftest-seeded POL-AUTO-001 row)."""
 
-import httpx
-import respx
-from fakes import ACTIVE_AUTO_POLICY, FakeRetriever, SchemaAwareAdapter, qa_fail
+from fakes import FakeRetriever, SchemaAwareAdapter, qa_fail
 
 from app.llm.client import LLMClient
 from app.pipeline.graph import compile_graph
 from app.pipeline.state import CaseState
 
-CRM_BASE = "http://localhost:8001"
 _INITIAL: CaseState = {"document_text": "some claim text"}
-
-
-def _mock_crm(mock: respx.MockRouter) -> None:
-    mock.get("/policies/POL-AUTO-001").mock(
-        return_value=httpx.Response(200, json=ACTIVE_AUTO_POLICY)
-    )
 
 
 async def test_qa_failing_twice_routes_to_human_after_one_regen() -> None:
@@ -26,9 +17,7 @@ async def test_qa_failing_twice_routes_to_human_after_one_regen() -> None:
     llm_client = LLMClient(adapter_factory=SchemaAwareAdapter)
     graph = compile_graph(llm_client, FakeRetriever(), None)
 
-    with respx.mock(base_url=CRM_BASE) as mock:
-        _mock_crm(mock)
-        final = await graph.ainvoke(_INITIAL)
+    final = await graph.ainvoke(_INITIAL)
 
     # exactly one regenerate: draft, qa, draft again, qa again — then stop
     assert SchemaAwareAdapter.calls == [
@@ -48,9 +37,7 @@ async def test_regenerated_draft_receives_qa_feedback_verbatim() -> None:
     llm_client = LLMClient(adapter_factory=SchemaAwareAdapter)
     graph = compile_graph(llm_client, FakeRetriever(), None)
 
-    with respx.mock(base_url=CRM_BASE) as mock:
-        _mock_crm(mock)
-        final = await graph.ainvoke(_INITIAL)
+    final = await graph.ainvoke(_INITIAL)
 
     assert len(SchemaAwareAdapter.draft_prompts) == 2
     first, second = SchemaAwareAdapter.draft_prompts
@@ -67,9 +54,7 @@ async def test_qa_passing_first_time_auto_approves_without_regen() -> None:
     llm_client = LLMClient(adapter_factory=SchemaAwareAdapter)
     graph = compile_graph(llm_client, FakeRetriever(), None)
 
-    with respx.mock(base_url=CRM_BASE) as mock:
-        _mock_crm(mock)
-        final = await graph.ainvoke(_INITIAL)
+    final = await graph.ainvoke(_INITIAL)
 
     assert SchemaAwareAdapter.calls == ["ClaimFields", "DecisionDraft", "QAResult"]
     assert final["route"] == "auto_approve"

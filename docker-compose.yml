@@ -26,43 +26,12 @@ services:
       timeout: 5s
       retries: 5
 
-  crm_postgres:
-    # The mock CRM's own database — deliberately separate from our postgres:
-    # it plays the role of a third-party system's storage, not ours.
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: crm
-      POSTGRES_PASSWORD: crm
-      POSTGRES_DB: crm
-    ports:
-      - "5433:5432"
-    volumes:
-      - crm_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U crm"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  mock_crm:
-    build: ./mock_crm
-    environment:
-      # e.g. CRM_CHAOS_MODE=down docker compose up -d mock_crm
-      CHAOS_MODE: ${CRM_CHAOS_MODE:-}
-      CRM_DATABASE_URL: postgresql://crm:crm@crm_postgres:5432/crm
-    ports:
-      - "8001:8001"
-    depends_on:
-      crm_postgres:
-        condition: service_healthy
-
   app:
     build: ./backend
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://claimpilot:claimpilot@postgres:5432/claimpilot
       REDIS_URL: redis://redis:6379/0
-      CRM_BASE_URL: http://mock_crm:8001
     ports:
       - "8000:8000"
     depends_on:
@@ -70,8 +39,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mock_crm:
-        condition: service_started
     volumes:
       - ./backend/app:/app/app
       - ./configs:/configs:ro
@@ -82,15 +49,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://claimpilot:claimpilot@postgres:5432/claimpilot
       REDIS_URL: redis://redis:6379/0
-      CRM_BASE_URL: http://mock_crm:8001
     command: ["arq", "app.worker.WorkerSettings"]
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mock_crm:
-        condition: service_started
     volumes:
       - ./backend/app:/app/app
       - ./configs:/configs:ro
@@ -105,4 +69,3 @@ services:
 
 volumes:
   postgres_data:
-  crm_postgres_data:

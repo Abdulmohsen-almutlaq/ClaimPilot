@@ -7,7 +7,7 @@ Deterministic by construction (no randomness): the generated
 diffs to the dataset are reviewable.
 
 Gold labels are authored against the same fixtures the pipeline runs on:
-- CRM seed policies (mock_crm/app/seed_data.py):
+- Seed policies (backend/app/db/seed.py):
     POL-AUTO-001 active/auto, POL-HOME-002 active/home,
     POL-HEALTH-003 LAPSED/health, POL-HEALTH-004 active/health
 - policy clauses in configs/policies/*.md (citation ids)
@@ -618,7 +618,7 @@ submitted unsigned, claimant name left blank.)
         final_status="needs_info",
     )
 
-    # ---- unknown policy numbers -> CRM 404 -> needs_info ----
+    # ---- unknown policy numbers -> not in policies table -> needs_info ----
     for persona, policy, date, amount, desc in [
         (AUTO, "POL-AUTO-999", "2026-06-17", "2600.00", "Rear-end collision on the interstate; bumper and trunk damaged."),
         (HOME, "POL-HOME-777", "2026-06-07", "4100.00", "Burst pipe in the upstairs bathroom damaged the ceiling below."),
