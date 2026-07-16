@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import admin, auth, cases, health, metrics
+from app.api import admin, auth, cases, health, metrics, track
 
 
 def create_app() -> FastAPI:
@@ -10,6 +10,7 @@ def create_app() -> FastAPI:
     app.include_router(cases.router)
     app.include_router(admin.router)
     app.include_router(metrics.router)
+    app.include_router(track.router)
     return app
 
 
