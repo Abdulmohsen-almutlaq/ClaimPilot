@@ -68,8 +68,16 @@ export function Layout() {
             </span>
           </div>
           <nav className="flex items-center gap-1">
-            <NavItem to="/" label="Approval queue" />
-            <NavItem to="/metrics" label="Metrics" />
+            {(me?.role === "approver" || me?.role === "admin") && (
+              <>
+                <NavItem to="/" label="Approval queue" />
+                <NavItem to="/cases" label="All cases" />
+                <NavItem to="/metrics" label="Metrics" />
+              </>
+            )}
+            {(me?.role === "submitter" || me?.role === "admin") && (
+              <NavItem to="/submit" label="Submit claim" />
+            )}
           </nav>
           <div className="ms-auto flex items-center gap-2">
             {me && (

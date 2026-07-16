@@ -22,9 +22,15 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function send(
+  path: string,
+  init: RequestInit | undefined,
+  json: boolean
+): Promise<Response> {
   const headers = new Headers(init?.headers)
-  headers.set("Content-Type", "application/json")
+  // FormData bodies must not get a manual Content-Type — the browser sets
+  // the multipart boundary itself.
+  if (json) headers.set("Content-Type", "application/json")
   const token = getToken()
   if (token) headers.set("Authorization", `Bearer ${token}`)
 
@@ -45,6 +51,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(resp.status, detail)
   }
+  return resp
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const resp = await send(path, init, true)
   return (await resp.json()) as T
 }
 
@@ -63,11 +74,24 @@ export interface CaseSummary {
   created_at: string
 }
 
+export interface ValidationResult {
+  valid?: boolean
+  reasons?: string[]
+  policy_status?: string | null
+}
+
+export interface EvidenceClause {
+  clause_id: string
+  text: string
+  similarity: number
+}
+
 export interface CaseDetail {
   case_id: string
   status: string
   extracted_fields: Record<string, unknown> | null
-  validation_result: Record<string, unknown> | null
+  validation_result: ValidationResult | null
+  evidence: EvidenceClause[] | null
   draft: {
     decision?: "approve" | "reject" | "needs_info"
     payout_amount?: string | null
@@ -88,6 +112,29 @@ export interface CaseDetail {
   overridden: boolean | null
   decided_by: string | null
   decided_at: string | null
+}
+
+export interface AuditEntry {
+  id: string
+  timestamp: string
+  actor: string
+  event_type: string
+  node: string | null
+  model: string | null
+  model_version: string | null
+  prompt_version: string | null
+  input_hash: string | null
+  output_hash: string | null
+  payload: Record<string, unknown> | null
+  cost_usd: string | null
+  latency_ms: number | null
+}
+
+export interface SubmitResult {
+  case_id: string
+  status: string
+  /** false when this document was already submitted (201 new vs 200 duplicate) */
+  created: boolean
 }
 
 export type HumanDecision = "approve" | "reject"
@@ -123,7 +170,21 @@ export const api = {
   me: () => request<Me>("/auth/me"),
   listCases: (status: string) =>
     request<CaseSummary[]>(`/cases?status=${status}`),
+  listAllCases: (params: { status?: string; q?: string }) => {
+    const search = new URLSearchParams({ order: "desc", limit: "200" })
+    if (params.status) search.set("status", params.status)
+    if (params.q) search.set("q", params.q)
+    return request<CaseSummary[]>(`/cases?${search.toString()}`)
+  },
   getCase: (caseId: string) => request<CaseDetail>(`/cases/${caseId}`),
+  getAudit: (caseId: string) => request<AuditEntry[]>(`/cases/${caseId}/audit`),
+  submitCase: async (file: File): Promise<SubmitResult> => {
+    const form = new FormData()
+    form.append("file", file)
+    const resp = await send("/cases", { method: "POST", body: form }, false)
+    const body = (await resp.json()) as { case_id: string; status: string }
+    return { ...body, created: resp.status === 201 }
+  },
   decide: (caseId: string, decision: HumanDecision, notes: string) =>
     request<DecisionResult>(`/cases/${caseId}/decision`, {
       method: "POST",

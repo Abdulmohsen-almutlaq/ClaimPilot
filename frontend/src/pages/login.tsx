@@ -35,7 +35,9 @@ export function LoginPage() {
     try {
       const { access_token } = await api.login(email, password)
       setToken(access_token)
-      navigate("/")
+      // Submitters get 403 on the queue — land them on their screen instead.
+      const me = await api.me()
+      navigate(me.role === "submitter" ? "/submit" : "/")
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Login failed")
     } finally {

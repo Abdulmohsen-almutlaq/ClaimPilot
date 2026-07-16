@@ -4,10 +4,12 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router"
 import { Layout } from "@/components/layout"
 import { Toaster } from "@/components/ui/sonner"
 import { getToken } from "@/lib/api"
+import { AllCasesPage } from "@/pages/all-cases"
 import { CaseDetailPage } from "@/pages/case-detail"
 import { LoginPage } from "@/pages/login"
 import { MetricsPage } from "@/pages/metrics"
 import { QueuePage } from "@/pages/queue"
+import { SubmitPage } from "@/pages/submit"
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -27,8 +29,10 @@ function App() {
           <Route element={<RequireAuth />}>
             <Route element={<Layout />}>
               <Route path="/" element={<QueuePage />} />
+              <Route path="/cases" element={<AllCasesPage />} />
               <Route path="/cases/:caseId" element={<CaseDetailPage />} />
               <Route path="/metrics" element={<MetricsPage />} />
+              <Route path="/submit" element={<SubmitPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
