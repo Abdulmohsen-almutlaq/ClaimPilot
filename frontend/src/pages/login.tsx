@@ -1,6 +1,6 @@
 import { FileCheck2Icon } from "lucide-react"
 import { useState } from "react"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -100,6 +100,9 @@ export function LoginPage() {
               </Button>
               <FieldDescription className="text-center">
                 Demo approver: approver@demo.io / demo
+              </FieldDescription>
+              <FieldDescription className="text-center">
+                Claimant? <Link to="/track">Track your claim</Link>
               </FieldDescription>
             </FieldGroup>
           </form>

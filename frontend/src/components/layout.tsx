@@ -78,6 +78,7 @@ export function Layout() {
             {(me?.role === "submitter" || me?.role === "admin") && (
               <NavItem to="/submit" label="Submit claim" />
             )}
+            {me?.role === "admin" && <NavItem to="/admin" label="Admin" />}
           </nav>
           <div className="ms-auto flex items-center gap-2">
             {me && (

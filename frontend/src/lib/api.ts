@@ -56,6 +56,7 @@ async function send(
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const resp = await send(path, init, true)
+  if (resp.status === 204) return undefined as T
   return (await resp.json()) as T
 }
 
@@ -137,6 +138,27 @@ export interface SubmitResult {
   created: boolean
 }
 
+export interface DlqEntry {
+  case_id: string
+  error: string
+  traceback: string
+  failed_at: string
+}
+
+export interface AdminUser {
+  id: string
+  email: string
+  role: string
+  created_at: string
+}
+
+export interface TrackResult {
+  case_id: string
+  phase: string
+  submitted_at: string
+  decided_at: string | null
+}
+
 export type HumanDecision = "approve" | "reject"
 
 export interface DecisionResult {
@@ -191,4 +213,27 @@ export const api = {
       body: JSON.stringify({ decision, notes: notes || null }),
     }),
   metrics: () => request<Metrics>("/metrics"),
+  listDlq: () => request<DlqEntry[]>("/admin/dlq"),
+  requeueDlq: (caseId: string) =>
+    request<{ case_id: string; status: string }>(
+      `/admin/dlq/${caseId}/requeue`,
+      { method: "POST" }
+    ),
+  listUsers: () => request<AdminUser[]>("/admin/users"),
+  createUser: (payload: { email: string; password: string; role: string }) =>
+    request<AdminUser>("/admin/users", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateUserRole: (id: string, role: string) =>
+    request<AdminUser>(`/admin/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
+  deleteUser: (id: string) =>
+    request<void>(`/admin/users/${id}`, { method: "DELETE" }),
+  trackCase: (caseId: string, policyNumber: string) =>
+    request<TrackResult>(
+      `/track/${caseId.trim()}?policy_number=${encodeURIComponent(policyNumber.trim())}`
+    ),
 }
