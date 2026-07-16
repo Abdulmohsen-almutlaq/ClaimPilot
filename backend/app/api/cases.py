@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit.writer import get_audit_trail, write_audit_event
@@ -30,6 +30,7 @@ class CaseDetailResponse(BaseModel):
     status: str
     extracted_fields: dict[str, Any] | None
     validation_result: dict[str, Any] | None
+    evidence: list[dict[str, Any]] | None
     draft: dict[str, Any] | None
     qa_result: dict[str, Any] | None
     route: str | None
@@ -55,6 +56,7 @@ class CaseSummaryResponse(BaseModel):
 @router.post("", response_model=CaseCreatedResponse, status_code=status.HTTP_201_CREATED)
 async def create_case(
     file: UploadFile,
+    response: Response,
     user: User = Depends(require_role("submitter", "admin")),
     session: AsyncSession = Depends(get_session),
 ) -> CaseCreatedResponse:
@@ -66,6 +68,9 @@ async def create_case(
 
     existing = await session.scalar(select(Case).where(Case.document_hash == document_hash))
     if existing is not None:
+        # 200, not 201: nothing was created, and the status code is the only
+        # way a client can tell "new case" from "duplicate of an existing one".
+        response.status_code = status.HTTP_200_OK
         return CaseCreatedResponse(case_id=str(existing.id), status=existing.status)
 
     document_text = extract_text_from_pdf(data)
@@ -82,14 +87,27 @@ async def create_case(
 @router.get("", response_model=list[CaseSummaryResponse])
 async def list_cases(
     status_filter: str | None = Query(default=None, alias="status"),
+    q: str | None = Query(default=None, max_length=100),
+    order: Literal["asc", "desc"] = Query(default="asc"),
     limit: int = Query(default=100, ge=1, le=500),
     user: User = Depends(require_role("approver", "admin")),
     session: AsyncSession = Depends(get_session),
 ) -> list[CaseSummaryResponse]:
-    """Approval-queue feed: `GET /cases?status=human_queue`, oldest first."""
-    query = select(Case).order_by(Case.created_at).limit(limit)
+    """Case feed. The approval queue reads `?status=human_queue` (oldest first,
+    the default); the all-cases screen reads `?order=desc&q=` to browse/search."""
+    order_by = Case.created_at.desc() if order == "desc" else Case.created_at.asc()
+    query = select(Case).order_by(order_by).limit(limit)
     if status_filter is not None:
         query = query.where(Case.status == status_filter)
+    if q:
+        escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        query = query.where(
+            or_(
+                Case.extracted_fields["claimant_name"].astext.ilike(pattern, escape="\\"),
+                Case.extracted_fields["policy_number"].astext.ilike(pattern, escape="\\"),
+            )
+        )
     cases = (await session.execute(query)).scalars().all()
 
     summaries: list[CaseSummaryResponse] = []
@@ -124,6 +142,7 @@ async def get_case(
         status=case.status,
         extracted_fields=case.extracted_fields,
         validation_result=case.validation_result,
+        evidence=case.evidence,
         draft=case.draft,
         qa_result=case.qa_result,
         route=case.route,
