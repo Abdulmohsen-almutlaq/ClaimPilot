@@ -1,8 +1,9 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Integer, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,3 +31,10 @@ class Case(Base, TimestampMixin):
     tokens_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     model_versions: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     prompt_versions: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Human decision (M7): all NULL until an approver acts. overridden is only
+    # ever set alongside human_decision, so COUNT(overridden) = decided cases.
+    human_decision: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    decision_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    overridden: Mapped[bool | None] = mapped_column(Boolean, nullable=True)

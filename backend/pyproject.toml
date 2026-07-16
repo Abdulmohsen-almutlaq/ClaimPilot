@@ -56,6 +56,10 @@ select = ["E", "F", "I", "UP", "B"]
 # B008: FastAPI's Depends(...) default-argument pattern is the idiomatic form, not a bug.
 ignore = ["B008"]
 
+[tool.ruff.lint.per-file-ignores]
+# conftest must set APP_ENV before app modules import (engine pooling depends on it).
+"tests/conftest.py" = ["E402"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

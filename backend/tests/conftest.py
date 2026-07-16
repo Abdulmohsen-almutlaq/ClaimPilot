@@ -1,5 +1,10 @@
 import asyncio
+import os
 import sys
+
+# CI runs with APP_ENV=test (NullPool engine); local .env says dev, whose pooled
+# connections break across pytest event loops. Must be set before app imports.
+os.environ.setdefault("APP_ENV", "test")
 
 import pytest
 from fastapi.testclient import TestClient

@@ -1,15 +1,15 @@
 import hashlib
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.audit.writer import get_audit_trail
+from app.audit.writer import get_audit_trail, write_audit_event
 from app.auth.dependencies import require_role
 from app.db.session import get_session
 from app.models.case import Case
@@ -34,6 +34,22 @@ class CaseDetailResponse(BaseModel):
     qa_result: dict[str, Any] | None
     route: str | None
     route_reason: str | None
+    human_decision: str | None
+    overridden: bool | None
+    decided_by: str | None
+    decided_at: datetime | None
+
+
+class CaseSummaryResponse(BaseModel):
+    """One approval-queue row: enough for a reviewer to pick a case, no more."""
+
+    case_id: str
+    status: str
+    route_reason: str | None
+    claimant_name: str | None
+    claimed_amount: str | None
+    category: str | None
+    created_at: datetime
 
 
 @router.post("", response_model=CaseCreatedResponse, status_code=status.HTTP_201_CREATED)
@@ -63,6 +79,37 @@ async def create_case(
     return CaseCreatedResponse(case_id=str(case.id), status=case.status)
 
 
+@router.get("", response_model=list[CaseSummaryResponse])
+async def list_cases(
+    status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=100, ge=1, le=500),
+    user: User = Depends(require_role("approver", "admin")),
+    session: AsyncSession = Depends(get_session),
+) -> list[CaseSummaryResponse]:
+    """Approval-queue feed: `GET /cases?status=human_queue`, oldest first."""
+    query = select(Case).order_by(Case.created_at).limit(limit)
+    if status_filter is not None:
+        query = query.where(Case.status == status_filter)
+    cases = (await session.execute(query)).scalars().all()
+
+    summaries: list[CaseSummaryResponse] = []
+    for case in cases:
+        fields = case.extracted_fields or {}
+        amount = fields.get("claimed_amount")
+        summaries.append(
+            CaseSummaryResponse(
+                case_id=str(case.id),
+                status=case.status,
+                route_reason=case.route_reason,
+                claimant_name=fields.get("claimant_name"),
+                claimed_amount=str(amount) if amount is not None else None,
+                category=fields.get("category"),
+                created_at=case.created_at,
+            )
+        )
+    return summaries
+
+
 @router.get("/{case_id}", response_model=CaseDetailResponse)
 async def get_case(
     case_id: uuid.UUID,
@@ -81,6 +128,78 @@ async def get_case(
         qa_result=case.qa_result,
         route=case.route,
         route_reason=case.route_reason,
+        human_decision=case.human_decision,
+        overridden=case.overridden,
+        decided_by=case.decided_by,
+        decided_at=case.decided_at,
+    )
+
+
+class DecisionRequest(BaseModel):
+    decision: Literal["approve", "deny"]
+    notes: str | None = None
+
+
+class DecisionResponse(BaseModel):
+    case_id: str
+    status: str
+    human_decision: str
+    ai_decision: str | None
+    overridden: bool
+
+
+@router.post("/{case_id}/decision", response_model=DecisionResponse)
+async def decide_case(
+    case_id: uuid.UUID,
+    request: DecisionRequest,
+    user: User = Depends(require_role("approver", "admin")),
+    session: AsyncSession = Depends(get_session),
+) -> DecisionResponse:
+    """Human decision on a queued case. An override (human disagreeing with the
+    AI draft) is computed server-side and recorded immutably in the audit log —
+    it is the M7 KPI that tells us whether the model can be trusted."""
+    case = await session.get(Case, case_id)
+    if case is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="case not found")
+    if case.status != "human_queue":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"case is not awaiting a decision (status: {case.status})",
+        )
+
+    ai_decision: str | None = (case.draft or {}).get("decision")
+    overridden = ai_decision is not None and request.decision != ai_decision
+
+    case.human_decision = request.decision
+    case.decision_notes = request.notes
+    case.decided_by = user.email
+    case.decided_at = datetime.now(UTC)
+    case.overridden = overridden
+    case.status = "approved" if request.decision == "approve" else "denied"
+
+    # write_audit_event commits, so the case update and its audit entry land
+    # in one transaction — a decision without a trail must be impossible.
+    await write_audit_event(
+        session,
+        case_id=case.id,
+        actor=user.email,
+        event_type="human_decision",
+        node="decision",
+        payload={
+            "decision": request.decision,
+            "ai_decision": ai_decision,
+            "overridden": overridden,
+            "notes": request.notes,
+            "route_reason": case.route_reason,
+        },
+    )
+
+    return DecisionResponse(
+        case_id=str(case.id),
+        status=case.status,
+        human_decision=request.decision,
+        ai_decision=ai_decision,
+        overridden=overridden,
     )
 
 
